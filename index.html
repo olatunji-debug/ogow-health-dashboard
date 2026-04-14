@@ -146,7 +146,7 @@
       <div class="header-text"><h1>Health Facility Performance Dashboard</h1><div class="scope" id="scopeSummaryHero">Ogow Health &middot; loading...</div></div>
     </div>
     <div class="header-actions">
-      <button class="btn-sync" id="btnSyncLive">&#9889; Sync Live Data</button>
+      <div class="btn-sync" id="btnSyncLive" style="cursor:default;font-size:11px;padding:6px 12px;line-height:1.4;text-align:center">&#128339; Syncing...</div>
       <label class="upload-sm">Upload JSON<input type="file" id="jsonUpload" accept=".json,application/json" /></label>
       <button class="chip-sm" id="btnReload">Reload</button>
       <button class="btn-sm" id="btnResetAll">Reset</button>
@@ -198,6 +198,7 @@
         <span class="badge-sm"><span class="dot" style="background:var(--red)"></span>Inactive</span>
         <span class="badge-sm" id="filterSummary">No filter applied</span>
         <span class="badge-sm" id="rangePill">Range: &mdash;</span>
+
       </div>
     </div>
   </section>
@@ -233,7 +234,7 @@
     function csvToObjects(t){const rows=parseCSV(t);if(rows.length<2)return[];const hdr=rows[0].map(h=>h.trim());return rows.slice(1).filter(r=>r.some(c=>c.trim())).map(r=>{const o={};hdr.forEach((h,i)=>o[h]=r[i]?.trim()??'');return o})}
     const MONTH_MAP={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
     function parsePeriodStr(s){if(!s)return null;s=s.trim();let m;m=s.match(/(\d+)\w*\s+(\w+)\s+(\d{4})\s*[-\u2013]\s*(\d+)\w*\s+(\w+)\s+(\d{4})/i);if(m){const[,d1,mo1,y1,d2,mo2,y2]=m;return{start:`${y1}-${String(MONTH_MAP[mo1.toLowerCase()]||1).padStart(2,'0')}-${d1.padStart(2,'0')}`,end:`${y2}-${String(MONTH_MAP[mo2.toLowerCase()]||1).padStart(2,'0')}-${d2.padStart(2,'0')}`}}m=s.match(/(\d+)\w*\s+(\w+)\s*[-\u2013]\s*(\d+)\w*\s+(\w+)\s+(\d{4})/i);if(m){const[,d1,mo1,d2,mo2,y]=m;const m1=MONTH_MAP[mo1.toLowerCase()]||1,m2=MONTH_MAP[mo2.toLowerCase()]||1,yr=parseInt(y),y1=m2<m1?yr-1:yr;return{start:`${y1}-${String(m1).padStart(2,'0')}-${d1.padStart(2,'0')}`,end:`${yr}-${String(m2).padStart(2,'0')}-${d2.padStart(2,'0')}`}}m=s.match(/(\d+)\w*\s*[-\u2013]\s*(\d+)\w*\s+(\w+)\s+(\d{4})/i);if(m){const[,d1,d2,mo,y]=m;const mn=MONTH_MAP[mo.toLowerCase()]||1;return{start:`${y}-${String(mn).padStart(2,'0')}-${d1.padStart(2,'0')}`,end:`${y}-${String(mn).padStart(2,'0')}-${d2.padStart(2,'0')}`}}return null}
-    async function syncLiveData(){const btn=document.getElementById('btnSyncLive');btn.classList.add('syncing');btn.textContent='\u26A1 Syncing...';try{const[mainCsv,facCsv,targetCsv]=await Promise.all([fetch(csvUrl('EPI Weekly Data')).then(r=>r.text()),fetch(csvUrl('EPI Health Facility List')).then(r=>r.text()),fetch(csvUrl('Weekly Target_Health Facility')).then(r=>r.text())]);const mainRows=csvToObjects(mainCsv),facRows=csvToObjects(facCsv),targetRows=csvToObjects(targetCsv);if(!mainRows.length)throw new Error('No data');const facLookup={};facRows.forEach(r=>{const k=(r['Health Facility']||'').toLowerCase();if(k)facLookup[k]={region:r['Region']||'Unknown',district:r['District']||'Unknown',facility:r['Health Facility']||'',project:r['Project Tag']||''}});const targetLookup={};targetRows.forEach(r=>{const k=(r['Health Facility']||'').toLowerCase();if(k)targetLookup[k]=parseFloat(r['Weekly BenchMarking Threshold (Doses Administered)'])||0});const periodStrs=[...new Set(mainRows.map(r=>r['To']).filter(Boolean))];const periodMeta={};periodStrs.sort((a,b)=>{const pa=parsePeriodStr(a),pb=parsePeriodStr(b);return(pa?.start||'').localeCompare(pb?.start||'')});periodStrs.forEach((ps,i)=>{const p=parsePeriodStr(ps);if(!p)return;const pid=`W${String(i+1).padStart(2,'0')}`;periodMeta[ps]={periodId:pid,weekStart:p.start,weekEnd:p.end,periodLabel:`${pid} \u00b7 ${p.start} \u2192 ${p.end}`}});const grouped={};mainRows.forEach(r=>{const ps=r['To']||'',role=(r['Role']||'').trim();if(!ps||!role||!periodMeta[ps])return;const key=`${ps}||${role.toLowerCase()}`;if(!grouped[key])grouped[key]={periodStr:ps,roleKey:role.toLowerCase(),daysActive:[],caregivers:0,children:0,cases:0,statuses:[]};const g=grouped[key];g.daysActive.push(parseFloat(r['Days Active'])||0);g.caregivers+=parseFloat(r['Caregiver cases on boarded'])||0;g.children+=parseFloat(r['Child cases on boarded'])||0;g.cases+=parseFloat(r['Cases administered'])||0;const pr=(r['Performance Rating']||'').trim();if(pr)g.statuses.push(pr)});function worstSt(sts){for(const s of['Inactive','Low Performing','High Performing'])for(const st of sts)if(st===s){if(s==='Inactive')return'Inactive';if(s==='Low Performing')return'Low';return'High'}return'Low'}const output=[];Object.values(grouped).forEach(g=>{const pm=periodMeta[g.periodStr];if(!pm)return;const fi=facLookup[g.roleKey]||{region:'Unknown',district:'Unknown',facility:g.roleKey,project:'Unknown'};const avgDays=g.daysActive.length?g.daysActive.reduce((a,b)=>a+b,0)/g.daysActive.length:0;output.push({periodId:pm.periodId,periodLabel:pm.periodLabel,weekStart:pm.weekStart,weekEnd:pm.weekEnd,region:fi.region,district:fi.district,facility:fi.facility,project:fi.project,children:Math.round(g.children),caregivers:Math.round(g.caregivers),cases:Math.round(g.cases),avgDaysActive:parseFloat(avgDays.toFixed(2)),benchmarkTarget:targetLookup[g.roleKey]||0,status:worstSt(g.statuses)})});loadRows(output,'Live Google Sheet (synced)');toast(`Synced ${output.length} rows`)}catch(e){console.error(e);toast('Sync failed: '+e.message)}finally{btn.classList.remove('syncing');btn.textContent='\u26A1 Sync Live Data'}}
+    async function syncLiveData(){const btn=document.getElementById('btnSyncLive');btn.innerHTML='&#128339; Syncing...';btn.style.opacity='0.7';try{const[mainCsv,facCsv,targetCsv]=await Promise.all([fetch(csvUrl('EPI Weekly Data')).then(r=>r.text()),fetch(csvUrl('EPI Health Facility List')).then(r=>r.text()),fetch(csvUrl('Weekly Target_Health Facility')).then(r=>r.text())]);const mainRows=csvToObjects(mainCsv),facRows=csvToObjects(facCsv),targetRows=csvToObjects(targetCsv);if(!mainRows.length)throw new Error('No data');const facLookup={};facRows.forEach(r=>{const k=(r['Health Facility']||'').toLowerCase();if(k)facLookup[k]={region:r['Region']||'Unknown',district:r['District']||'Unknown',facility:r['Health Facility']||'',project:r['Project Tag']||''}});const targetLookup={};targetRows.forEach(r=>{const k=(r['Health Facility']||'').toLowerCase();if(k)targetLookup[k]=parseFloat(r['Weekly BenchMarking Threshold (Doses Administered)'])||0});const periodStrs=[...new Set(mainRows.map(r=>r['To']).filter(Boolean))];const periodMeta={};periodStrs.sort((a,b)=>{const pa=parsePeriodStr(a),pb=parsePeriodStr(b);return(pa?.start||'').localeCompare(pb?.start||'')});periodStrs.forEach((ps,i)=>{const p=parsePeriodStr(ps);if(!p)return;const pid=`W${String(i+1).padStart(2,'0')}`;periodMeta[ps]={periodId:pid,weekStart:p.start,weekEnd:p.end,periodLabel:`${pid} \u00b7 ${p.start} \u2192 ${p.end}`}});const grouped={};mainRows.forEach(r=>{const ps=r['To']||'',role=(r['Role']||'').trim();if(!ps||!role||!periodMeta[ps])return;const key=`${ps}||${role.toLowerCase()}`;if(!grouped[key])grouped[key]={periodStr:ps,roleKey:role.toLowerCase(),daysActive:[],caregivers:0,children:0,cases:0,statuses:[]};const g=grouped[key];g.daysActive.push(parseFloat(r['Days Active'])||0);g.caregivers+=parseFloat(r['Caregiver cases on boarded'])||0;g.children+=parseFloat(r['Child cases on boarded'])||0;g.cases+=parseFloat(r['Cases administered'])||0;const pr=(r['Performance Rating']||'').trim();if(pr)g.statuses.push(pr)});function worstSt(sts){for(const s of['Inactive','Low Performing','High Performing'])for(const st of sts)if(st===s){if(s==='Inactive')return'Inactive';if(s==='Low Performing')return'Low';return'High'}return'Low'}const output=[];Object.values(grouped).forEach(g=>{const pm=periodMeta[g.periodStr];if(!pm)return;const fi=facLookup[g.roleKey]||{region:'Unknown',district:'Unknown',facility:g.roleKey,project:'Unknown'};const avgDays=g.daysActive.length?g.daysActive.reduce((a,b)=>a+b,0)/g.daysActive.length:0;output.push({periodId:pm.periodId,periodLabel:pm.periodLabel,weekStart:pm.weekStart,weekEnd:pm.weekEnd,region:fi.region,district:fi.district,facility:fi.facility,project:fi.project,children:Math.round(g.children),caregivers:Math.round(g.caregivers),cases:Math.round(g.cases),avgDaysActive:parseFloat(avgDays.toFixed(2)),benchmarkTarget:targetLookup[g.roleKey]||0,status:worstSt(g.statuses)})});loadRows(output,'Live Google Sheet (synced)');updateTimestamp();toast(`Synced ${output.length} rows`)}catch(e){console.error(e);toast('Sync failed: '+e.message)}finally{btn.style.opacity='1'}}
 
     /* ═══ STATE ═══ */
     const STATE={raw:[],periods:[],charts:{},grids:{},project:'ALL',currentView:'trend',currentDensityRows:[],currentFollowupRows:[],currentDefaulterRows:[]};
@@ -413,11 +414,11 @@
     }
     bindEvents();
     /* ═══ AUTO-SYNC: load embedded data first for instant render, then auto-fetch live ═══ */
-    loadRows(DEMO_ROWS,'EPI Weekly (embedded snapshot)');
+    loadRows(DEMO_ROWS,'EPI Weekly (embedded snapshot)');updateTimestamp();
     async function autoSync(){
       const btn=document.getElementById('btnSyncLive');
       try{
-        btn.classList.add('syncing');btn.textContent='\u26A1 Auto-syncing...';
+        btn.innerHTML='&#128339; Syncing...';btn.style.opacity='0.7';
         const[mainCsv,facCsv,targetCsv]=await Promise.all([fetch(csvUrl('EPI Weekly Data')).then(r=>r.text()),fetch(csvUrl('EPI Health Facility List')).then(r=>r.text()),fetch(csvUrl('Weekly Target_Health Facility')).then(r=>r.text())]);
         const mainRows=csvToObjects(mainCsv),facRows=csvToObjects(facCsv),targetRows=csvToObjects(targetCsv);
         if(!mainRows.length)throw new Error('No data returned');
@@ -430,13 +431,23 @@
         function worstSt(sts){for(const s of['Inactive','Low Performing','High Performing'])for(const st of sts)if(st===s){if(s==='Inactive')return'Inactive';if(s==='Low Performing')return'Low';return'High'}return'Low'}
         const output=[];Object.values(grouped).forEach(g=>{const pm=periodMeta[g.periodStr];if(!pm)return;const fi=facLookup[g.roleKey]||{region:'Unknown',district:'Unknown',facility:g.roleKey,project:'Unknown'};const avgDays=g.daysActive.length?g.daysActive.reduce((a,b)=>a+b,0)/g.daysActive.length:0;output.push({periodId:pm.periodId,periodLabel:pm.periodLabel,weekStart:pm.weekStart,weekEnd:pm.weekEnd,region:fi.region,district:fi.district,facility:fi.facility,project:fi.project,children:Math.round(g.children),caregivers:Math.round(g.caregivers),cases:Math.round(g.cases),avgDaysActive:parseFloat(avgDays.toFixed(2)),benchmarkTarget:targetLookup[g.roleKey]||0,status:worstSt(g.statuses)})});
         loadRows(output,'Live Google Sheet (auto-synced)');
+        updateTimestamp();
         toast(`\u2705 Live data loaded: ${output.length} rows`);
       }catch(e){
         console.warn('Auto-sync failed, using embedded data:',e.message);
         toast('Using embedded data (live sync unavailable)');
       }finally{
-        btn.classList.remove('syncing');btn.textContent='\u26A1 Sync Live Data';
+        btn.style.opacity='1';
       }
+    }
+    function updateTimestamp(){
+      const now=new Date();
+      const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const tzShort=now.toLocaleString('en-US',{timeZoneName:'short'}).split(' ').pop();
+      const d=now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const t=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+      const el=document.getElementById('btnSyncLive');
+      el.innerHTML='&#128994; Live &middot; '+d+', '+t+' '+tzShort;
     }
     /* Auto-sync on page load after a brief delay to let UI render first */
     setTimeout(autoSync,800);
