@@ -1,11 +1,20 @@
 [build]
   publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "20"
+  GITHUB_DATA_PATH = "data/epi_weekly_performance_rows.json"
 
 [[headers]]
-  for = "/*"
+  for = "/index.html"
   [headers.values]
-    X-Frame-Options = "SAMEORIGIN"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Cache-Control = "public, max-age=300, s-maxage=600"
-    Access-Control-Allow-Origin = "*"
+    Cache-Control = "no-store"
+
+# Set these in Netlify UI:
+# GOOGLE_CLIENT_ID = your Google OAuth client ID
+# GITHUB_REPO = org-or-user/private-data-repo
+# GITHUB_TOKEN = GitHub token with repo read access
