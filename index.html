@@ -1,129 +1,74 @@
-<script src="auth-gate.js"></script>
-<script>
-(() => {
+(function () {
   'use strict';
 
-  const DEMO_ROWS = [];
-  window.OGOW_GOOGLE_CLIENT_ID = 'REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID';
-  const OGOW_AUTH_ERROR = 'Access denied, User not permitted to view dashboard. Please sign in with your OGOW Health Google account.';
+  const DENIED_MESSAGE =
+    'Access denied, User not permitted to view dashboard. Please sign in with your OGOW Health Google account.';
   const VERIFY_ENDPOINT = '/.netlify/functions/verify-google-auth';
   const DATA_ENDPOINT = '/.netlify/functions/dashboard-data';
 
-  const STATE = window.STATE || {
-    raw: [],
-    periods: [],
-    currentView: 'trend',
-    project: 'ALL',
-    grids: {},
-    charts: {},
-    currentDensityRows: [],
-    currentFollowupRows: [],
-    currentDefaulterRows: []
-  };
-  window.STATE = STATE;
-
-  function byId(id){ return document.getElementById(id); }
-  function safeNum(v){ return Number.isFinite(Number(v)) ? Number(v) : 0; }
-  function fmt(v){ return new Intl.NumberFormat().format(Math.round(safeNum(v))); }
-  function dec(v){ return safeNum(v).toFixed(1); }
-  function statusRank(s){ return ({ High:1, Low:2, Inactive:3 }[s] || 0); }
-  function hasRealClientId(id){
-    return !!id &&
-      typeof id === 'string' &&
-      !/REPLACE_WITH_GOOGLE_CLIENT_ID|REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID|YOUR_REAL_GOOGLE_CLIENT_ID/i.test(id);
+  function $(id) {
+    return document.getElementById(id);
   }
 
-  const DOM = {
-    loading: byId('loadingOverlay'),
-    toast: byId('toast'),
-    jsonUpload: byId('jsonUpload'),
-    btnReload: byId('btnReload'),
-    btnResetAll: byId('btnResetAll'),
-    btnResetFilters: byId('btnResetFilters'),
-    presetGroup: byId('presetGroup'),
-    weeklyPeriod: byId('weeklyPeriod'),
-    fromPeriod: byId('fromPeriod'),
-    toPeriod: byId('toPeriod'),
-    regionFilter: byId('regionFilter'),
-    districtFilter: byId('districtFilter'),
-    facilityFilter: byId('facilityFilter'),
-    projectButtons: byId('projectButtons'),
-    rangePill: byId('rangePill'),
-    scopeSummaryHero: byId('scopeSummaryHero'),
-    filterSummary: byId('filterSummary'),
-    kpiGrid: byId('kpiGrid'),
-    performanceTrendChart: byId('performanceTrendChart'),
-    topDefaultersList: byId('topDefaultersList'),
-    viewTrend: byId('viewTrend'),
-    viewWeekly: byId('viewWeekly'),
-    weeklyGrid: byId('weeklyGrid'),
-    weeklyViewTitle: byId('weeklyViewTitle'),
-    filterGrid: byId('filterGrid'),
-    timeBoxWrap: byId('timeBoxWrap'),
-    weeklyFieldWrap: byId('weeklyFieldWrap')
-  };
-
-  const COLORS = { High:'#4ac87e', Low:'#eac04f', Inactive:'#e0665f' };
-  const showLoading = on => DOM.loading.classList.toggle('show', !!on);
-  const statusTone = s => COLORS[s] || '#a0c2b6';
-
-  function toast(msg){
-    if(!DOM.toast) return;
-    DOM.toast.textContent = msg;
-    DOM.toast.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => DOM.toast.classList.remove('show'), 2400);
+  function hasRealClientId(value) {
+    return (
+      !!value &&
+      typeof value === 'string' &&
+      !/REPLACE_WITH_GOOGLE_CLIENT_ID|REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID|YOUR_REAL_GOOGLE_CLIENT_ID/i.test(value)
+    );
   }
 
-  function setAuthMessage(message, isError=false){
-    const el = byId('ogow-auth-message');
-    if(!el) return;
+  function setAuthMessage(message, isError) {
+    const el = $('ogow-auth-message');
+    if (!el) return;
     el.textContent = message || '';
     el.style.color = isError ? '#c24e45' : '#47625b';
   }
 
-  function showOgowAuthOverlay(){
-    const overlay = byId('ogow-auth-overlay');
-    const app = byId('app');
-    if(overlay) overlay.style.display = 'flex';
-    if(app) app.style.display = 'none';
+  function showOverlay() {
+    const overlay = $('ogow-auth-overlay');
+    const app = $('app');
+    if (overlay) overlay.style.display = 'flex';
+    if (app) app.style.display = 'none';
   }
 
-  function hideOgowAuthOverlay(){
-    const overlay = byId('ogow-auth-overlay');
-    const app = byId('app');
-    if(overlay) overlay.style.display = 'none';
-    if(app) app.style.display = 'grid';
+  function hideOverlay() {
+    const overlay = $('ogow-auth-overlay');
+    const app = $('app');
+    if (overlay) overlay.style.display = 'none';
+    if (app) app.style.display = 'grid';
   }
 
-  function setRetryBusy(on){
-    const btn = byId('retryGoogleSignIn');
-    if(!btn) return;
-    btn.disabled = !!on;
-    btn.style.opacity = on ? '0.7' : '1';
-    btn.textContent = on ? 'Loading...' : 'Retry sign-in';
-  }
+  function updateTimestamp() {
+    const btn = $('btnSyncLive');
+    if (!btn) return;
 
-  function updateTimestamp(){
-    const btn = byId('btnSyncLive');
-    if(!btn) return;
-    if(window.ogowCredential){
+    if (window.ogowCredential) {
       btn.innerHTML = '&#9989; Signed in';
       btn.style.cursor = 'pointer';
       btn.style.opacity = '1';
-    }else{
+    } else {
       btn.innerHTML = '&#128274; Staff sign-in required';
       btn.style.cursor = 'pointer';
       btn.style.opacity = '1';
     }
   }
-  window.updateTimestamp = updateTimestamp;
 
-  async function ensureGoogleScript(){
-    if(window.google && window.google.accounts && window.google.accounts.id) return true;
+  function setRetryBusy(isBusy) {
+    const btn = $('retryGoogleSignIn');
+    if (!btn) return;
+    btn.disabled = !!isBusy;
+    btn.style.opacity = isBusy ? '0.7' : '1';
+    btn.textContent = isBusy ? 'Loading...' : 'Retry sign-in';
+  }
+
+  async function ensureGoogleScript() {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      return true;
+    }
 
     let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-    if(!script){
+    if (!script) {
       script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
@@ -133,912 +78,118 @@
 
     return new Promise((resolve, reject) => {
       const started = Date.now();
+
       const timer = setInterval(() => {
-        if(window.google && window.google.accounts && window.google.accounts.id){
+        if (window.google && window.google.accounts && window.google.accounts.id) {
           clearInterval(timer);
           resolve(true);
           return;
         }
-        if(Date.now() - started > 15000){
+
+        if (Date.now() - started > 15000) {
           clearInterval(timer);
           reject(new Error('Google sign-in library did not load.'));
         }
       }, 250);
 
-      script.addEventListener('error', () => {
-        clearInterval(timer);
-        reject(new Error('Failed to load Google sign-in library.'));
-      }, { once:true });
+      script.addEventListener(
+        'error',
+        function () {
+          clearInterval(timer);
+          reject(new Error('Failed to load Google sign-in library.'));
+        },
+        { once: true }
+      );
     });
   }
 
-  async function postJson(url, payload){
+  async function postJson(url, payload) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload || {})
     });
 
     const raw = await res.text();
     let parsed = null;
+
     try {
       parsed = raw ? JSON.parse(raw) : null;
-    } catch (_) {
+    } catch (err) {
       parsed = raw;
     }
 
-    if(!res.ok){
-      const msg =
+    if (!res.ok) {
+      const message =
         (parsed && parsed.message) ||
         (typeof parsed === 'string' ? parsed : '') ||
-        OGOW_AUTH_ERROR;
-      throw new Error(msg);
+        DENIED_MESSAGE;
+      throw new Error(message);
     }
 
     return parsed;
   }
 
-  async function verifyOgowGoogleAccess(credential){
-    return await postJson(VERIFY_ENDPOINT, { credential });
+  async function verifyOgowGoogleAccess(credential) {
+    return await postJson(VERIFY_ENDPOINT, { credential: credential });
   }
 
-  async function loadProtectedDashboardData(credential){
-    const data = await postJson(DATA_ENDPOINT, { credential });
-    if(Array.isArray(data)) return data;
-    if(data && Array.isArray(data.rows)) return data.rows;
+  async function loadProtectedDashboardData(credential) {
+    const data = await postJson(DATA_ENDPOINT, { credential: credential });
+
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.rows)) return data.rows;
     return [];
   }
 
-  window.verifyOgowGoogleAccess = verifyOgowGoogleAccess;
-  window.loadProtectedDashboardData = loadProtectedDashboardData;
-  window.showOgowAuthOverlay = showOgowAuthOverlay;
-  window.hideOgowAuthOverlay = hideOgowAuthOverlay;
-  window.OGOW_AUTH_ERROR = OGOW_AUTH_ERROR;
-
-  function csvEscape(v){
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-  }
-
-  function exportCsv(name, rows){
-    if(!rows?.length){ toast('No rows'); return; }
-    const h = Object.keys(rows[0]);
-    const lines = [h.join(',')].concat(rows.map(r => h.map(k => csvEscape(r[k])).join(',')));
-    const b = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
-    const u = URL.createObjectURL(b);
-    const a = document.createElement('a');
-    a.href = u;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(u);
-  }
-
-  function exportXlsx(name, rows){
-    if(!rows?.length){ toast('No rows'); return; }
-    const headers = Object.keys(rows[0]);
-    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>td,th{border:1px solid #ccc;padding:6px 10px;font-family:Calibri,Arial,sans-serif;font-size:11pt}th{background:#0d3b30;color:#fff;font-weight:bold;text-align:center}.inactive{background:#f4cccc;color:#cc0000;font-weight:bold;text-align:center}.low{background:#fff2cc;color:#bf8f00;font-weight:bold;text-align:center}.high{background:#d9ead3;color:#38761d;font-weight:bold;text-align:center}.row-inactive td:not(.inactive):not(.low):not(.high){background:#fce8e6}.row-low td:not(.inactive):not(.low):not(.high){background:#fef9e7}</style></head><body><table>';
-    html += '<tr>' + headers.map(h => '<th>'+h+'</th>').join('') + '</tr>';
-    rows.forEach(r => {
-      const ws = r.worstStatus || r.statusCurrent || '';
-      const rowCls = ws === 'Inactive' ? 'row-inactive' : ws === 'Low' ? 'row-low' : '';
-      html += '<tr class="'+rowCls+'">';
-      headers.forEach(h => {
-        const val = String(r[h] ?? '');
-        const isSt = h.toLowerCase().includes('status') || h.toLowerCase().includes('worst') || h.toLowerCase().includes('recent');
-        let cls = '';
-        if(isSt){
-          if(val === 'Inactive') cls = 'inactive';
-          else if(val === 'Low') cls = 'low';
-          else if(val === 'High') cls = 'high';
-        }
-        html += '<td class="'+cls+'">'+val+'</td>';
-      });
-      html += '</tr>';
-    });
-    html += '</table></body></html>';
-    const blob = new Blob([html], { type:'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name.replace('.xlsx','.xls');
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('Excel exported with colors');
-  }
-
-  function exportChart(chart, name){
-    if(!chart) return;
-    const u = chart.getDataURL({ pixelRatio:2, backgroundColor:'#071914' });
-    const a = document.createElement('a');
-    a.href = u;
-    a.download = name;
-    a.click();
-  }
-
-  function fillSelect(sel, items, selected, includeAll=true, allLabel='All'){
-    const o = [];
-    if(includeAll) o.push(`<option value="ALL">${allLabel}</option>`);
-    items.forEach(i => o.push(`<option value="${i}">${i}</option>`));
-    sel.innerHTML = o.join('');
-    if(selected && Array.from(sel.options).some(opt => opt.value === selected)) sel.value = selected;
-  }
-
-  function normalizeRow(row){
-    return {
-      periodId: String(row.periodId || row.period || row.week || '').trim(),
-      periodLabel: String(row.periodLabel || row.period_label || '').trim(),
-      weekStart: String(row.weekStart || row.week_start || row.start || '').trim(),
-      weekEnd: String(row.weekEnd || row.week_end || row.end || '').trim(),
-      region: String(row.region || '').trim() || 'Unknown',
-      district: String(row.district || '').trim() || 'Unknown',
-      facility: String(row.facility || row.healthFacility || row.health_facility || '').trim() || 'Unknown',
-      project: String(row.project || row.projectName || row.project_name || '').trim() || 'Unassigned',
-      children: safeNum(row.children),
-      caregivers: safeNum(row.caregivers),
-      cases: safeNum(row.cases),
-      avgDaysActive: safeNum(row.avgDaysActive ?? row.avg_days_active),
-      benchmarkTarget: safeNum(row.benchmarkTarget ?? row.benchmark_target ?? 0),
-      status: ['High','Low','Inactive'].includes(row.status) ? row.status : 'Low'
-    };
-  }
-
-  function fmtDateShort(d){
-    if(!d) return '';
-    const parts = d.split('-');
-    if(parts.length !== 3) return d;
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return months[parseInt(parts[1],10)-1] + ' ' + parseInt(parts[2],10);
-  }
-
-  function buildPeriodMeta(rows){
-    const map = new Map();
-    rows.forEach(r => {
-      if(!map.has(r.periodId)){
-        map.set(r.periodId,{
-          id:r.periodId,
-          label:r.periodLabel || r.periodId,
-          start:r.weekStart || '',
-          end:r.weekEnd || ''
-        });
-      }
-    });
-
-    return Array.from(map.values())
-      .sort((a,b) => a.id.localeCompare(b.id, undefined, { numeric:true }))
-      .map((p,i) => {
-        const short = `${p.id} (${fmtDateShort(p.start)} to ${fmtDateShort(p.end)})`;
-        return { ...p, idx:i, nice:short, short:short };
-      });
-  }
-
-  function periodShort(pid){
-    if(!pid) return '';
-    const p = STATE.periods.find(x => x.id === pid);
-    return p ? p.short : pid;
-  }
-
-  function setProjectButtons(projects){
-    const cur = STATE.project || 'ALL';
-    const btns = [{ label:'All Projects', value:'ALL' }].concat(projects.map(p => ({ label:p, value:p })));
-    DOM.projectButtons.innerHTML = btns.map(b => `<button class="project-btn ${b.value===cur?'active':''}" data-project="${b.value}">${b.label}</button>`).join('');
-    DOM.projectButtons.querySelectorAll('.project-btn').forEach(b => {
-      b.addEventListener('click', () => {
-        STATE.project = b.dataset.project;
-        setProjectButtons(projects);
-        renderDashboard();
-      });
-    });
-  }
-
-  function populateControls(){
-    const p = STATE.periods;
-    const labels = p.map(x => x.nice);
-    const ids = p.map(x => x.id);
-
-    DOM.weeklyPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
-    DOM.fromPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
-    DOM.toPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
-
-    const last = p[p.length-1]?.id;
-    DOM.weeklyPeriod.value = last;
-    DOM.fromPeriod.value = p[Math.max(0,p.length-4)]?.id || last;
-    DOM.toPeriod.value = last;
-
-    updateFilterOptions();
-    setProjectButtons([...new Set(STATE.raw.map(r => r.project))].sort());
-  }
-
-  function currentPeriodRange(){
-    if(STATE.currentView === 'weekly'){
-      const wId = DOM.weeklyPeriod.value;
-      return wId ? [wId] : [];
-    }
-
-    const fId = DOM.fromPeriod.value;
-    const tId = DOM.toPeriod.value;
-    const fIdx = STATE.periods.find(p => p.id === fId)?.idx ?? 0;
-    const tIdx = STATE.periods.find(p => p.id === tId)?.idx ?? STATE.periods.length-1;
-    const s = Math.min(fIdx,tIdx);
-    const e = Math.max(fIdx,tIdx);
-    return STATE.periods.slice(s,e+1).map(p => p.id);
-  }
-
-  function getFilteredRows(){
-    const ids = new Set(currentPeriodRange());
-    const reg = DOM.regionFilter.value || 'ALL';
-    const dis = DOM.districtFilter.value || 'ALL';
-    const fac = DOM.facilityFilter.value || 'ALL';
-    const prj = STATE.project || 'ALL';
-
-    return STATE.raw.filter(r =>
-      ids.has(r.periodId) &&
-      (reg === 'ALL' || r.region === reg) &&
-      (dis === 'ALL' || r.district === dis) &&
-      (fac === 'ALL' || r.facility === fac) &&
-      (prj === 'ALL' || r.project === prj)
-    );
-  }
-
-  function updateFilterOptions(){
-    const ids = new Set(currentPeriodRange());
-    const inRange = STATE.raw.filter(r =>
-      ids.has(r.periodId) &&
-      ((STATE.project || 'ALL') === 'ALL' || r.project === STATE.project)
-    );
-
-    const cR = DOM.regionFilter.value || 'ALL';
-    fillSelect(DOM.regionFilter, [...new Set(inRange.map(r => r.region))].sort(), cR);
-
-    const afterR = inRange.filter(r => cR === 'ALL' || r.region === cR);
-    const cD = DOM.districtFilter.value || 'ALL';
-    fillSelect(DOM.districtFilter, [...new Set(afterR.map(r => r.district))].sort(), cD);
-
-    const afterD = afterR.filter(r => cD === 'ALL' || r.district === cD);
-    const cF = DOM.facilityFilter.value || 'ALL';
-    fillSelect(DOM.facilityFilter, [...new Set(afterD.map(r => r.facility))].sort(), cF, true, 'All Facilities');
-  }
-
-  function summarizeFacilities(rows){
-    const g = new Map();
-
-    rows.forEach(r => {
-      const k = [r.region,r.district,r.facility,r.project].join('||');
-      if(!g.has(k)) g.set(k,{ region:r.region, district:r.district, facility:r.facility, project:r.project, rows:[] });
-      g.get(k).rows.push(r);
-    });
-
-    return Array.from(g.values()).map(item => {
-      const tw = item.rows.length || 1;
-      const iw = item.rows.filter(r => r.status === 'Inactive').length;
-      const lw = item.rows.filter(r => r.status === 'Low').length;
-      const hw = item.rows.filter(r => r.status === 'High').length;
-      const ws = item.rows.reduce((a,r) => statusRank(r.status) > statusRank(a) ? r.status : a, 'High');
-      const lr = item.rows.slice().sort((a,b) => a.periodId.localeCompare(b.periodId,undefined,{numeric:true})).slice(-1)[0];
-
-      const ac = item.rows.reduce((s,r) => s+r.children,0) / tw;
-      const ag = item.rows.reduce((s,r) => s+r.caregivers,0) / tw;
-      const ax = item.rows.reduce((s,r) => s+r.cases,0) / tw;
-      const ad = item.rows.reduce((s,r) => s+r.avgDaysActive,0) / tw;
-      const ss = iw*6 + lw*3 + (lr?.status === 'Inactive' ? 4 : lr?.status === 'Low' ? 2 : 0) + Math.max(0,5-ad);
-
-      const sorted = item.rows.slice().sort((a,b) => a.periodId.localeCompare(b.periodId,undefined,{numeric:true}));
-      const l3 = sorted.slice(-3);
-      const st3 = l3.length >= 3 ? { s:l3[0].status, id:l3[0].periodId } : { s:'—', id:'' };
-      const st2 = l3.length >= 2 ? { s:l3[l3.length-2].status, id:l3[l3.length-2].periodId } : { s:'—', id:'' };
-      const st1 = l3.length >= 1 ? { s:l3[l3.length-1].status, id:l3[l3.length-1].periodId } : { s:'—', id:'' };
-
-      return {
-        region:item.region,
-        district:item.district,
-        facility:item.facility,
-        project:item.project,
-        totalWeeks:tw,
-        inactiveWeeks:iw,
-        lowWeeks:lw,
-        highWeeks:hw,
-        avgChildren:Number(ac.toFixed(1)),
-        avgCaregivers:Number(ag.toFixed(1)),
-        avgCases:Number(ax.toFixed(1)),
-        avgDays:Number(ad.toFixed(2)),
-        worstStatus:ws,
-        recentStatus:lr?.status || 'High',
-        highDensity:Number((hw/tw*100).toFixed(0)),
-        lowDensity:Number((lw/tw*100).toFixed(0)),
-        inactiveDensity:Number((iw/tw*100).toFixed(0)),
-        severityScore:Number(ss.toFixed(1)),
-        statusMinus2:st3.s,
-        statusMinus2Id:st3.id,
-        statusMinus1:st2.s,
-        statusMinus1Id:st2.id,
-        statusCurrent:st1.s,
-        statusCurrentId:st1.id
-      };
-    }).sort((a,b) => b.severityScore-a.severityScore || a.facility.localeCompare(b.facility));
-  }
-
-  function buildWeeklySeries(rows){
-    return STATE.periods
-      .filter(p => currentPeriodRange().includes(p.id))
-      .map(p => {
-        const b = rows.filter(r => r.periodId === p.id);
-        return {
-          periodId:p.id,
-          label:p.id,
-          children:b.reduce((s,r) => s+r.children,0),
-          caregivers:b.reduce((s,r) => s+r.caregivers,0),
-          cases:b.reduce((s,r) => s+r.cases,0),
-          avgDays:b.length ? b.reduce((s,r) => s+r.avgDaysActive,0)/b.length : 0,
-          high:b.filter(r => r.status === 'High').length,
-          low:b.filter(r => r.status === 'Low').length,
-          inactive:b.filter(r => r.status === 'Inactive').length
-        };
-      });
-  }
-
-  function statusBadge(params){
-    const v = params.value || '';
-    const t = statusTone(v);
-    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:${t}1e;border:1px solid ${t}44;color:${t};font-weight:800;font-size:11px">&#9679; ${v}</span>`;
-  }
-
-  function densityBarRenderer(color){
-    return params => {
-      const val = safeNum(params.value);
-      return `<div style="display:flex;align-items:center;gap:8px;min-width:130px"><div style="flex:1;height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${val}%;height:100%;background:linear-gradient(90deg,${color}66,${color});border-radius:999px"></div></div><span style="font-weight:800;color:${color};font-size:12px">${val}%</span></div>`;
-    };
-  }
-
-  function statusRowStyle(params){
-    const ws = params.data?.worstStatus || '';
-    if(ws === 'Inactive') return { background:'rgba(224,102,95,.10)', borderLeft:'3px solid #e0665f' };
-    if(ws === 'Low') return { background:'rgba(234,192,79,.08)', borderLeft:'3px solid #eac04f' };
-    return null;
-  }
-
-  function ensureGrids(){
-    if(!STATE.grids.density){
-      STATE.grids.density = agGrid.createGrid(byId('densityGrid'), {
-        columnDefs:[
-          { field:'region', headerName:'Region', minWidth:110 },
-          { field:'district', headerName:'District', minWidth:110 },
-          { field:'facility', headerName:'Facility', minWidth:170, flex:1.2 },
-          { field:'project', headerName:'Project', minWidth:130 },
-          { field:'highDensity', headerName:'High %', minWidth:140, cellRenderer:densityBarRenderer(COLORS.High), comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'lowDensity', headerName:'Low %', minWidth:140, cellRenderer:densityBarRenderer(COLORS.Low), comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'inactiveDensity', headerName:'Inactive %', minWidth:150, cellRenderer:densityBarRenderer(COLORS.Inactive), comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'worstStatus', headerName:'Worst', minWidth:120, cellRenderer:statusBadge },
-          { field:'recentStatus', headerName:'Recent', minWidth:120, cellRenderer:statusBadge }
-        ],
-        defaultColDef:{ sortable:true, filter:true, resizable:true, unSortIcon:true },
-        rowData:[],
-        animateRows:true,
-        suppressCellFocus:true,
-        getRowStyle:statusRowStyle
-      });
-    }
-
-    if(!STATE.grids.followup){
-      STATE.grids.followup = agGrid.createGrid(byId('followupGrid'), {
-        columnDefs:[
-          { field:'region', headerName:'Region', minWidth:110 },
-          { field:'district', headerName:'District', minWidth:110 },
-          { field:'facility', headerName:'Facility', minWidth:170, flex:1.1 },
-          { field:'project', headerName:'Project', minWidth:130 },
-          { field:'worstStatus', headerName:'Worst Status', minWidth:120, cellRenderer:statusBadge },
-          { field:'statusMinus2', headerName:'Status (last 2 wks)', minWidth:150, cellRenderer:statusBadge },
-          { field:'statusMinus1', headerName:'Status (last wk)', minWidth:140, cellRenderer:statusBadge },
-          { field:'statusCurrent', headerName:'Status (current wk)', minWidth:150, cellRenderer:statusBadge },
-          { field:'inactiveWeeks', headerName:'Inactive Wks', minWidth:110, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'lowWeeks', headerName:'Low Wks', minWidth:100, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'children', headerName:'Children', minWidth:95, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'caregivers', headerName:'Caregivers', minWidth:100, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'avgDays', headerName:'Avg Days', minWidth:90, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-          { field:'fromPeriod', headerName:'From Period', minWidth:200 },
-          { field:'toPeriod', headerName:'To Period', minWidth:200 }
-        ],
-        defaultColDef:{ sortable:true, filter:true, resizable:true, unSortIcon:true },
-        rowData:[],
-        animateRows:true,
-        suppressCellFocus:true,
-        getRowStyle:statusRowStyle
-      });
-    }
-  }
-
-  function sparkSvg(series,color,height=32){
-    if(!series.length) return '';
-    const max = Math.max(...series,1);
-    const w = 120;
-    const h = height;
-    const pts = series.map((v,i) => `${(i/(series.length-1||1))*w},${h-((v/max)*h*.85+h*.05)}`).join(' ');
-    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block"><defs><linearGradient id="g_${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".18"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><polyline fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/><polygon fill="url(#g_${color.replace('#','')})" points="0,${h} ${pts} ${w},${h}"/></svg>`;
-  }
-
-  function trendBadge(series){
-    if(series.length < 2) return '<span class="sc-change neutral">—</span>';
-    const prev = series[series.length-2] || 0;
-    const cur = series[series.length-1] || 0;
-    if(!prev && !cur) return '<span class="sc-change neutral">0%</span>';
-    const pct = prev === 0 ? 100 : ((cur-prev)/prev*100);
-    const cls = pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral';
-    const arrow = pct > 0 ? '&#9650;' : pct < 0 ? '&#9660;' : '&#9679;';
-    return `<span class="sc-change ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
-  }
-
-  function buildFullHistoricalSeries(){
-    return STATE.periods.map(p => {
-      const b = STATE.raw.filter(r => r.periodId === p.id);
-      return {
-        label:p.id,
-        children:b.reduce((s,r) => s+r.children,0),
-        caregivers:b.reduce((s,r) => s+r.caregivers,0),
-        cases:b.reduce((s,r) => s+r.cases,0),
-        avgDays:b.length ? b.reduce((s,r) => s+r.avgDaysActive,0)/b.length : 0
-      };
-    });
-  }
-
-  function renderKpis(summaryRows, weeklySeries){
-    const tc = weeklySeries.reduce((s,r) => s+r.children,0);
-    const tg = weeklySeries.reduce((s,r) => s+r.caregivers,0);
-    const ad = weeklySeries.length ? weeklySeries.reduce((s,r) => s+r.avgDays,0)/weeklySeries.length : 0;
-    const ts = weeklySeries.reduce((s,r) => s+r.cases,0);
-    const tf = summaryRows.length;
-    const hc = summaryRows.filter(r => r.worstStatus === 'High').length;
-    const ic = summaryRows.filter(r => r.worstStatus === 'Inactive').length;
-    const lc = summaryRows.filter(r => r.worstStatus === 'Low').length;
-    const fu = ic + lc;
-
-    const hist = buildFullHistoricalSeries();
-    const cs = hist.map(r => r.children);
-    const gs = hist.map(r => r.caregivers);
-    const ds = hist.map(r => r.avgDays);
-    const ss = hist.map(r => r.cases);
-    const isWeekly = STATE.currentView === 'weekly';
-    const weekLabel = isWeekly ? (' — ' + periodShort(DOM.weeklyPeriod.value)) : '';
-
-    const icons = [
-      {bg:'rgba(46,196,182,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#6ee8db" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>'},
-      {bg:'rgba(138,217,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#8ad9ff" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>'},
-      {bg:'rgba(234,192,79,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#eac04f" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'},
-      {bg:'rgba(196,157,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#c49dff" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'}
-    ];
-
-    const cards = [
-      { l:'Children Onboarded'+weekLabel, v:fmt(tc), sp:sparkSvg(cs,'#6ee8db'), tr:trendBadge(cs), ic:icons[0] },
-      { l:'Caregiver Onboarded'+weekLabel, v:fmt(tg), sp:sparkSvg(gs,'#8ad9ff'), tr:trendBadge(gs), ic:icons[1] },
-      { l:'Avg Active Days'+weekLabel, v:dec(ad), sp:sparkSvg(ds,'#eac04f'), tr:trendBadge(ds), ic:icons[2] },
-      { l:'Cases Administered'+weekLabel, v:fmt(ts), sp:sparkSvg(ss,'#c49dff'), tr:trendBadge(ss), ic:icons[3] }
-    ];
-
-    let html = cards.map(c => `<div class="sc"><div class="sc-top"><div><div class="sc-label">${c.l}</div><div class="sc-value">${c.v}</div>${c.tr}</div><div class="sc-icon" style="background:${c.ic.bg}">${c.ic.svg}</div></div><div class="sc-spark">${c.sp}</div></div>`).join('');
-
-    const avgHighPct = tf ? summaryRows.reduce((s,r)=>s+r.highDensity,0)/tf : 0;
-    const avgLowPct = tf ? summaryRows.reduce((s,r)=>s+r.lowDensity,0)/tf : 0;
-    const avgInactivePct = tf ? summaryRows.reduce((s,r)=>s+r.inactiveDensity,0)/tf : 0;
-
-    if(isWeekly){
-      html += `<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${fmt(hc)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${fmt(ic)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${fmt(lc)}</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
-    }else{
-      html += `<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${avgHighPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${avgInactivePct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${avgLowPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
-    }
-
-    DOM.kpiGrid.innerHTML = html;
-
-    setTimeout(() => {
-      const el = byId('facDonutChart');
-      if(!el) return;
-      if(STATE.charts.donut) STATE.charts.donut.dispose();
-      STATE.charts.donut = echarts.init(el);
-
-      const donutData = isWeekly
-        ? [
-            { value:hc, name:'High', itemStyle:{ color:'#4ac87e' } },
-            { value:lc, name:'Low', itemStyle:{ color:'#eac04f' } },
-            { value:ic, name:'Inactive', itemStyle:{ color:'#e0665f' } }
-          ]
-        : [
-            { value:Number(avgHighPct.toFixed(1)), name:'High '+avgHighPct.toFixed(0)+'%', itemStyle:{ color:'#4ac87e' } },
-            { value:Number(avgLowPct.toFixed(1)), name:'Low '+avgLowPct.toFixed(0)+'%', itemStyle:{ color:'#eac04f' } },
-            { value:Number(avgInactivePct.toFixed(1)), name:'Inactive '+avgInactivePct.toFixed(0)+'%', itemStyle:{ color:'#e0665f' } }
-          ];
-
-      const donutTooltip = isWeekly
-        ? {
-            trigger:'item',
-            backgroundColor:'rgba(10,26,21,.95)',
-            borderColor:'rgba(110,232,219,.18)',
-            textStyle:{ color:'#eaf7f2', fontSize:12, fontWeight:600 },
-            formatter:function(p){ return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name}</strong><br/><span style="font-size:20px;font-weight:900">${p.value} facilities</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of total</span></div>`; }
-          }
-        : {
-            trigger:'item',
-            backgroundColor:'rgba(10,26,21,.95)',
-            borderColor:'rgba(110,232,219,.18)',
-            textStyle:{ color:'#eaf7f2', fontSize:12, fontWeight:600 },
-            formatter:function(p){ return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name.split(' ')[0]}</strong><br/><span style="font-size:20px;font-weight:900">${p.value.toFixed(1)}%</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of distribution</span></div>`; }
-          };
-
-      STATE.charts.donut.setOption({
-        tooltip: donutTooltip,
-        series:[{
-          type:'pie',
-          radius:['58%','82%'],
-          center:['50%','50%'],
-          label:{
-            show:true,
-            position:'center',
-            formatter:()=>`{big|${tf}}\n{sub|facilities}`,
-            rich:{
-              big:{ fontSize:22, fontWeight:900, color:'#eaf7f2', lineHeight:28 },
-              sub:{ fontSize:10, color:'#a0c2b6', lineHeight:16 }
-            }
-          },
-          itemStyle:{ borderRadius:6, borderColor:'#0c221c', borderWidth:2 },
-          data: donutData,
-          emphasis:{ itemStyle:{ shadowBlur:16, shadowColor:'rgba(0,0,0,.3)' } }
-        }]
-      });
-    }, 50);
-  }
-
-  function renderPerformanceTrend(series){
-    if(!STATE.charts.performance) STATE.charts.performance = echarts.init(DOM.performanceTrendChart);
-    STATE.charts.performance.setOption({
-      backgroundColor:'transparent',
-      tooltip:{ trigger:'axis' },
-      legend:{ top:0, textStyle:{ color:'#eaf7f2', fontSize:11 } },
-      grid:{ left:16, right:14, top:38, bottom:16, containLabel:true },
-      xAxis:{
-        type:'category',
-        data:series.map(r => periodShort(r.label) || r.label),
-        axisLine:{ lineStyle:{ color:'rgba(255,255,255,.12)' } },
-        axisLabel:{ color:'#a0c2b6', fontSize:10, rotate:35, interval:0 }
-      },
-      yAxis:{
-        type:'value',
-        axisLine:{ show:false },
-        splitLine:{ lineStyle:{ color:'rgba(255,255,255,.06)' } },
-        axisLabel:{ color:'#a0c2b6', fontSize:11 }
-      },
-      series:[
-        { name:'High', type:'line', smooth:true, symbolSize:7, lineStyle:{ width:2.5, color:COLORS.High }, itemStyle:{ color:COLORS.High }, areaStyle:{ color:'rgba(74,200,126,.10)' }, data:series.map(r=>r.high) },
-        { name:'Low', type:'line', smooth:true, symbolSize:7, lineStyle:{ width:2.5, color:COLORS.Low }, itemStyle:{ color:COLORS.Low }, areaStyle:{ color:'rgba(234,192,79,.07)' }, data:series.map(r=>r.low) },
-        { name:'Inactive', type:'line', smooth:true, symbolSize:7, lineStyle:{ width:2.5, color:COLORS.Inactive }, itemStyle:{ color:COLORS.Inactive }, areaStyle:{ color:'rgba(224,102,95,.07)' }, data:series.map(r=>r.inactive) }
-      ]
-    });
-  }
-
-  function renderDefaulters(summaryRows, fromP, toP){
-    const weak = summaryRows.filter(r => r.worstStatus !== 'High').slice(0,8);
-
-    STATE.currentDefaulterRows = weak.map(r => ({
-      region:r.region,
-      district:r.district,
-      facility:r.facility,
-      project:r.project,
-      inactiveWeeks:r.inactiveWeeks,
-      lowWeeks:r.lowWeeks,
-      avgDays:r.avgDays,
-      severityScore:r.severityScore,
-      worstStatus:r.worstStatus,
-      recentStatus:r.recentStatus,
-      fromPeriod:fromP,
-      toPeriod:toP
-    }));
-
-    if(!weak.length){
-      DOM.topDefaultersList.innerHTML = '<div class="empty-state">No defaulters in the selected period.</div>';
-      return;
-    }
-
-    const mx = Math.max(...weak.map(r => r.severityScore), 1);
-
-    DOM.topDefaultersList.innerHTML = weak.map((r,i) => `<div class="rank-row"><div class="rank-pos">${i+1}</div><div><div class="rank-name">${r.facility}</div><div style="margin-top:3px;color:var(--dim);font-size:11px">${r.region} &middot; ${r.district} &middot; ${r.project}</div></div><div style="font-size:11px;color:var(--dim);line-height:1.5"><div>Inactive: <strong style="color:var(--red)">${r.inactiveWeeks}</strong></div><div>Low: <strong style="color:var(--gold)">${r.lowWeeks}</strong></div></div><div><div class="heatbar"><span style="width:${(r.severityScore/mx)*100}%"></span></div><div style="margin-top:6px;color:var(--dim);font-size:11px">Score ${dec(r.severityScore)}</div></div><div style="font-size:11px;line-height:1.6"><div style="color:${statusTone(r.worstStatus)};font-weight:800">W: ${r.worstStatus}</div><div style="color:${statusTone(r.recentStatus)};font-weight:800">R: ${r.recentStatus}</div></div></div>`).join('');
-  }
-
-  function renderWeeklyView(filteredRows){
-    const weekId = DOM.weeklyPeriod.value;
-    const weekRows = filteredRows
-      .filter(r => r.periodId === weekId)
-      .sort((a,b) => statusRank(b.status)-statusRank(a.status) || a.facility.localeCompare(b.facility));
-
-    const pMeta = STATE.periods.find(p => p.id === weekId);
-    DOM.weeklyViewTitle.textContent = `Weekly Snapshot — ${pMeta?.short || weekId}`;
-
-    if(!weekRows.length){
-      DOM.weeklyGrid.innerHTML = '<div class="empty-state">No facilities match the selected week and filters.</div>';
-      return;
-    }
-
-    DOM.weeklyGrid.innerHTML = weekRows.map(r => {
-      const t = statusTone(r.status);
-      const cls = r.status === 'High' ? 'status-high' : r.status === 'Low' ? 'status-low' : 'status-inactive';
-      return `<div class="wk-fac ${cls}"><div style="display:flex;justify-content:space-between;align-items:center"><div class="wk-fac-name">${r.facility}</div><span class="wk-status" style="background:${t}1e;border:1px solid ${t}44;color:${t}">&#9679; ${r.status}</span></div><div style="font-size:11px;color:var(--dim);margin:4px 0">${r.region} &middot; ${r.district} &middot; ${r.project}</div><div class="wk-fac-meta"><span>👶 ${r.children} children</span><span>👨‍👩‍👧 ${r.caregivers} caregivers</span><span>📊 ${r.cases} cases</span><span>⏱ ${r.avgDaysActive.toFixed(1)} avg days</span></div></div>`;
-    }).join('');
-  }
-
-  function lookupFacilityStatus(facility, project, periodId){
-    const row = STATE.raw.find(r => r.facility === facility && r.project === project && r.periodId === periodId);
-    return row ? row.status : '—';
-  }
-
-  function renderTables(summaryRows, fromP, toP){
-    ensureGrids();
-
-    const dr = summaryRows.map(r => ({
-      region:r.region,
-      district:r.district,
-      facility:r.facility,
-      project:r.project,
-      highDensity:r.highDensity,
-      lowDensity:r.lowDensity,
-      inactiveDensity:r.inactiveDensity,
-      worstStatus:r.worstStatus,
-      recentStatus:r.recentStatus
-    }));
-
-    let lbl2, lbl1, lbl0;
-    const isWeekly = STATE.currentView === 'weekly';
-    let wkMinus2Id = '', wkMinus1Id = '', wkCurrentId = '';
-
-    if(isWeekly){
-      const wId = DOM.weeklyPeriod.value;
-      const wIdx = STATE.periods.findIndex(p => p.id === wId);
-      wkCurrentId = wId;
-      wkMinus1Id = wIdx >= 1 ? STATE.periods[wIdx-1].id : '';
-      wkMinus2Id = wIdx >= 2 ? STATE.periods[wIdx-2].id : '';
-      lbl2 = wkMinus2Id ? periodShort(wkMinus2Id) : '-2 Wks';
-      lbl1 = wkMinus1Id ? periodShort(wkMinus1Id) : '-1 Wk';
-      lbl0 = periodShort(wkCurrentId) || 'Current';
-    } else {
-      const wk2Ids = new Set(summaryRows.map(r => r.statusMinus2Id).filter(Boolean));
-      const wk1Ids = new Set(summaryRows.map(r => r.statusMinus1Id).filter(Boolean));
-      const wk0Ids = new Set(summaryRows.map(r => r.statusCurrentId).filter(Boolean));
-      lbl2 = periodShort([...wk2Ids][0]) || '-2 Wks';
-      lbl1 = periodShort([...wk1Ids][0]) || '-1 Wk';
-      lbl0 = periodShort([...wk0Ids][0]) || 'Current';
-    }
-
-    const fr = summaryRows
-      .filter(r => {
-        if(isWeekly) return ['Inactive','Low'].includes(r.worstStatus);
-        const s2 = r.statusMinus2, s1 = r.statusMinus1, s0 = r.statusCurrent;
-        return ['Inactive','Low'].includes(s2) || ['Inactive','Low'].includes(s1) || ['Inactive','Low'].includes(s0);
-      })
-      .map(r => {
-        let s2,s1,s0;
-        if(isWeekly){
-          s2 = wkMinus2Id ? lookupFacilityStatus(r.facility,r.project,wkMinus2Id) : '—';
-          s1 = wkMinus1Id ? lookupFacilityStatus(r.facility,r.project,wkMinus1Id) : '—';
-          s0 = lookupFacilityStatus(r.facility,r.project,wkCurrentId);
-        } else {
-          s2 = r.statusMinus2;
-          s1 = r.statusMinus1;
-          s0 = r.statusCurrent;
-        }
-
-        return {
-          region:r.region,
-          district:r.district,
-          facility:r.facility,
-          project:r.project,
-          worstStatus:r.worstStatus,
-          statusMinus2:s2,
-          statusMinus1:s1,
-          statusCurrent:s0,
-          inactiveWeeks:r.inactiveWeeks,
-          lowWeeks:r.lowWeeks,
-          children:Math.round(r.avgChildren),
-          caregivers:Math.round(r.avgCaregivers),
-          avgDays:Number(r.avgDays.toFixed(2)),
-          fromPeriod:periodShort(fromP) || fromP,
-          toPeriod:periodShort(toP) || toP
-        };
-      });
-
-    const fuCols = [
-      { field:'region', headerName:'Region', minWidth:110 },
-      { field:'district', headerName:'District', minWidth:110 },
-      { field:'facility', headerName:'Facility', minWidth:170, flex:1.1 },
-      { field:'project', headerName:'Project', minWidth:130 },
-      { field:'worstStatus', headerName:'Worst Status', minWidth:120, cellRenderer:statusBadge },
-      { field:'statusMinus2', headerName:lbl2+' - last 2 wks', minWidth:220, cellRenderer:statusBadge },
-      { field:'statusMinus1', headerName:lbl1+' - last wk', minWidth:210, cellRenderer:statusBadge },
-      { field:'statusCurrent', headerName:lbl0+' - current wk', minWidth:220, cellRenderer:statusBadge },
-      { field:'inactiveWeeks', headerName:'Inactive Wks', minWidth:110, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-      { field:'lowWeeks', headerName:'Low Wks', minWidth:100, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-      { field:'children', headerName:'Children', minWidth:95, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-      { field:'caregivers', headerName:'Caregivers', minWidth:100, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-      { field:'avgDays', headerName:'Avg Days', minWidth:90, comparator:(a,b)=>safeNum(a)-safeNum(b) },
-      { field:'fromPeriod', headerName:'From Period', minWidth:200 },
-      { field:'toPeriod', headerName:'To Period', minWidth:200 }
-    ];
-
-    STATE.grids.followup.setGridOption('columnDefs', fuCols);
-    STATE.currentDensityRows = dr;
-    STATE.currentFollowupRows = fr;
-    STATE.grids.density.setGridOption('rowData', dr);
-    STATE.grids.followup.setGridOption('rowData', fr);
-  }
-
-  function renderSummaryText(filteredRows, summaryRows){
-    const proj = new Set(filteredRows.map(r => r.project)).size;
-    const reg = new Set(filteredRows.map(r => r.region)).size;
-    const dis = new Set(filteredRows.map(r => r.district)).size;
-    const fac = summaryRows.length;
-    const wks = new Set(filteredRows.map(r => r.periodId)).size;
-    const wkLabel = wks === 1 ? '1 week' : wks + ' weeks';
-
-    DOM.scopeSummaryHero.textContent = `Ogow Health · ${fmt(proj)} Projects · ${fmt(reg)} regions · ${fmt(dis)} districts · ${fmt(fac)} health facilities · ${wkLabel}`;
-
-    const rng = currentPeriodRange();
-    DOM.rangePill.textContent = STATE.currentView === 'weekly'
-      ? `Week: ${periodShort(DOM.weeklyPeriod.value) || '—'}`
-      : `Range: ${periodShort(rng[0]) || '—'} → ${periodShort(rng[rng.length-1]) || '—'}`;
-
-    const bits = [];
-    if(STATE.project !== 'ALL') bits.push(STATE.project);
-    if(DOM.regionFilter.value !== 'ALL') bits.push(DOM.regionFilter.value);
-    if(DOM.districtFilter.value !== 'ALL') bits.push(DOM.districtFilter.value);
-    if(DOM.facilityFilter.value !== 'ALL') bits.push(DOM.facilityFilter.value);
-    DOM.filterSummary.textContent = bits.length ? bits.join(' · ') : 'No filter applied';
-  }
-
-  function renderDashboard(){
-    updateFilterOptions();
-    const f = getFilteredRows();
-    const s = summarizeFacilities(f);
-    const w = buildWeeklySeries(f);
-    const fromP = currentPeriodRange()[0] || '—';
-    const toP = currentPeriodRange().slice(-1)[0] || '—';
-
-    renderSummaryText(f, s);
-    renderKpis(s, w);
-
-    if(STATE.currentView === 'trend'){
-      renderPerformanceTrend(w);
-      renderDefaulters(s, fromP, toP);
-      renderTables(s, fromP, toP);
-    } else {
-      renderWeeklyView(f);
-      renderTables(s, fromP, toP);
-    }
-  }
-
-  function applyViewLayout(){
-    const isTrend = STATE.currentView === 'trend';
-    DOM.viewTrend.classList.toggle('hidden', !isTrend);
-    DOM.viewWeekly.classList.toggle('hidden', isTrend);
-    DOM.timeBoxWrap.style.display = isTrend ? '' : 'none';
-    DOM.weeklyFieldWrap.style.display = isTrend ? 'none' : '';
-    DOM.filterGrid.className = `filter-grid ${isTrend ? 'mode-trend' : 'mode-weekly'}`;
-    DOM.presetGroup.style.display = isTrend ? '' : 'none';
-    document.querySelectorAll('#viewToggle .vt-btn').forEach(b => b.classList.toggle('active', b.dataset.view === STATE.currentView));
-  }
-
-  function toggleView(view){
-    STATE.currentView = view;
-    applyViewLayout();
-    renderDashboard();
-    if(view === 'trend'){
-      setTimeout(() => Object.values(STATE.charts).forEach(c => c?.resize()), 120);
-    }
-  }
-
-  function setPreset(name){
-    const p = STATE.periods;
-    const last = p.length - 1;
-    if(!p.length) return;
-
-    if(name === 'single'){
-      DOM.fromPeriod.value = p[last].id;
-      DOM.toPeriod.value = p[last].id;
-    } else if(name === 'last4'){
-      DOM.fromPeriod.value = p[Math.max(0,last-3)].id;
-      DOM.toPeriod.value = p[last].id;
-    } else if(name === 'last8'){
-      DOM.fromPeriod.value = p[Math.max(0,last-7)].id;
-      DOM.toPeriod.value = p[last].id;
-    } else {
-      DOM.fromPeriod.value = p[0].id;
-      DOM.toPeriod.value = p[last].id;
-    }
-
-    DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c => c.classList.toggle('active', c.dataset.preset === name));
-    renderDashboard();
-  }
-
-  function resetFilters(){
-    STATE.project = 'ALL';
-    DOM.regionFilter.value = 'ALL';
-    DOM.districtFilter.value = 'ALL';
-    DOM.facilityFilter.value = 'ALL';
-    setProjectButtons([...new Set(STATE.raw.map(r => r.project))].sort());
-    renderDashboard();
-  }
-
-  function loadRows(rows, sourceLabel){
-    showLoading(true);
-    requestAnimationFrame(() => {
-      try{
-        STATE.raw = rows.map(normalizeRow).filter(r => r.periodId && r.facility);
-        STATE.periods = buildPeriodMeta(STATE.raw);
-        populateControls();
-        const last = STATE.periods[STATE.periods.length-1]?.id;
-        DOM.weeklyPeriod.value = last;
-        applyViewLayout();
-
-        setPreset(
-          sourceLabel.toLowerCase().includes('full') ||
-          sourceLabel.toLowerCase().includes('operational') ||
-          sourceLabel.toLowerCase().includes('live')
-            ? 'all'
-            : 'last4'
-        );
-      }catch(e){
-        console.error(e);
-        toast('Could not load data');
-      }finally{
-        showLoading(false);
-      }
-    });
-  }
-  window.loadRows = loadRows;
-
-  async function syncProtectedData(options={}){
-    const btn = byId('btnSyncLive');
-    const quiet = options.quiet === true;
-
-    try{
-      if(!window.ogowCredential || typeof window.loadProtectedDashboardData !== 'function'){
-        showOgowAuthOverlay();
-        throw new Error(window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
+  async function syncProtectedData(options) {
+    const quiet = options && options.quiet === true;
+    const btn = $('btnSyncLive');
+
+    try {
+      if (!window.ogowCredential) {
+        showOverlay();
+        throw new Error(DENIED_MESSAGE);
       }
 
-      if(btn){
+      if (btn) {
         btn.innerHTML = '&#128339; Syncing...';
         btn.style.opacity = '0.7';
       }
 
-      const rows = await window.loadProtectedDashboardData(window.ogowCredential);
+      const rows = await loadProtectedDashboardData(window.ogowCredential);
       window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
-      loadRows(window.ogowAuthorizedRows, 'Authenticated protected dataset');
+
+      if (typeof window.initializeDashboardWithRows === 'function') {
+        window.initializeDashboardWithRows(window.ogowAuthorizedRows);
+      } else if (typeof window.loadRows === 'function') {
+        window.loadRows(window.ogowAuthorizedRows, 'Authenticated protected dataset');
+      }
+
       updateTimestamp();
 
-      if(!quiet) toast(`Synced ${window.ogowAuthorizedRows.length} protected rows`);
-    }catch(e){
-      console.error(e);
-      toast(e.message || window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
-      showOgowAuthOverlay();
-    }finally{
+      if (!quiet && typeof window.toast === 'function') {
+        window.toast(`Synced ${window.ogowAuthorizedRows.length} protected rows`);
+      }
+    } catch (err) {
+      console.error('Protected sync failed:', err);
+      showOverlay();
+      updateTimestamp();
+      setAuthMessage(err && err.message ? err.message : DENIED_MESSAGE, true);
+      if (typeof window.toast === 'function') {
+        window.toast(err && err.message ? err.message : DENIED_MESSAGE);
+      }
+    } finally {
       updateTimestamp();
     }
   }
 
-  function restoreAuthorizedRows(showNotice=false){
-    if(Array.isArray(window.ogowAuthorizedRows) && window.ogowAuthorizedRows.length){
-      loadRows(window.ogowAuthorizedRows, 'Authenticated protected dataset');
-      updateTimestamp();
-      if(showNotice) toast('Dashboard reset');
-    } else {
-      toast(window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
-      showOgowAuthOverlay();
-    }
-  }
-
-  window.initializeDashboardWithRows = function(rows){
-    window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
-    loadRows(window.ogowAuthorizedRows, 'Authenticated protected dataset');
-    updateTimestamp();
-  };
-
-  let authInitInProgress = false;
-
-  async function handleGoogleLogin(response){
-    try{
+  async function handleGoogleLogin(response) {
+    try {
       const credential = response && response.credential;
-      if(!credential) throw new Error('Google sign-in did not return a credential.');
+      if (!credential) {
+        throw new Error('Google sign-in did not return a credential.');
+      }
 
       setAuthMessage('Verifying account...', false);
 
@@ -1048,47 +199,61 @@
       window.ogowCredential = credential;
       window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
 
-      hideOgowAuthOverlay();
+      hideOverlay();
       updateTimestamp();
 
-      if(typeof window.initializeDashboardWithRows === 'function'){
+      if (typeof window.initializeDashboardWithRows === 'function') {
         window.initializeDashboardWithRows(window.ogowAuthorizedRows);
+      } else if (typeof window.loadRows === 'function') {
+        window.loadRows(window.ogowAuthorizedRows, 'Authenticated protected dataset');
       } else {
-        throw new Error('Dashboard bootstrap function initializeDashboardWithRows() is missing.');
+        throw new Error('Dashboard bootstrap function is missing.');
       }
 
-      const email = verifyResult && typeof verifyResult === 'object' ? (verifyResult.email || '') : '';
-      if(email) console.info('OGOW access approved for:', email);
-    }catch(err){
-      console.error('OGOW auth/login error:', err);
-      showOgowAuthOverlay();
+      const email =
+        verifyResult && typeof verifyResult === 'object'
+          ? verifyResult.email || ''
+          : '';
+
+      if (email) {
+        console.info('OGOW access approved for:', email);
+      }
+    } catch (err) {
+      console.error('Google login failed:', err);
+      showOverlay();
       updateTimestamp();
-      setAuthMessage(err && err.message ? err.message : OGOW_AUTH_ERROR, true);
+      setAuthMessage(err && err.message ? err.message : DENIED_MESSAGE, true);
     }
   }
 
-  async function initializeOgowAuth(){
-    if(authInitInProgress) return;
+  let authInitInProgress = false;
+
+  async function initializeOgowAuth() {
+    if (authInitInProgress) return;
     authInitInProgress = true;
 
-    try{
-      showOgowAuthOverlay();
+    try {
+      showOverlay();
       updateTimestamp();
       setRetryBusy(true);
 
-      if(!hasRealClientId(window.OGOW_GOOGLE_CLIENT_ID)){
-        throw new Error('Google Client ID is not configured. Replace REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID in index.html with the real OAuth Web Client ID.');
+      if (!hasRealClientId(window.OGOW_GOOGLE_CLIENT_ID)) {
+        throw new Error(
+          'Google Client ID is not configured. Replace the placeholder in index.html with the real OAuth Web Client ID.'
+        );
       }
 
       setAuthMessage('Loading Google sign-in...', false);
       await ensureGoogleScript();
 
-      if(!(window.google && window.google.accounts && window.google.accounts.id)){
+      if (!(window.google && window.google.accounts && window.google.accounts.id)) {
         throw new Error('Google sign-in library loaded incompletely.');
       }
 
-      const mount = byId('googleSignInButton');
-      if(!mount) throw new Error('Google sign-in button container was not found.');
+      const mount = $('googleSignInButton');
+      if (!mount) {
+        throw new Error('Google sign-in button container was not found.');
+      }
 
       mount.innerHTML = '';
 
@@ -1111,58 +276,68 @@
       });
 
       setAuthMessage('Use your @ogowhealth.com Google account.', false);
-    }catch(err){
+    } catch (err) {
       console.error('OGOW auth init error:', err);
-      showOgowAuthOverlay();
+      showOverlay();
       setAuthMessage(err && err.message ? err.message : 'Failed to initialize Google sign-in.', true);
-    }finally{
+    } finally {
       setRetryBusy(false);
       authInitInProgress = false;
     }
   }
 
+  function bindUi() {
+    const retryBtn = $('retryGoogleSignIn');
+    if (retryBtn && !retryBtn.dataset.ogowBound) {
+      retryBtn.dataset.ogowBound = '1';
+      retryBtn.addEventListener('click', function () {
+        initializeOgowAuth();
+      });
+    }
+
+    const syncBtn = $('btnSyncLive');
+    if (syncBtn && !syncBtn.dataset.ogowBound) {
+      syncBtn.dataset.ogowBound = '1';
+      syncBtn.addEventListener('click', function () {
+        if (!window.ogowCredential) {
+          showOverlay();
+          setAuthMessage('Please sign in with your @ogowhealth.com Google account.', false);
+        } else {
+          syncProtectedData();
+        }
+      });
+    }
+
+    const scope = $('scopeSummaryHero');
+    if (scope && !scope.dataset.ogowBound) {
+      scope.dataset.ogowBound = '1';
+      scope.style.cursor = 'pointer';
+      scope.addEventListener('click', function () {
+        if (!window.ogowCredential) showOverlay();
+      });
+    }
+  }
+
+  function boot() {
+    updateTimestamp();
+    showOverlay();
+    bindUi();
+    initializeOgowAuth();
+  }
+
+  window.OGOW_AUTH_ERROR = DENIED_MESSAGE;
+  window.showOgowAuthOverlay = showOverlay;
+  window.hideOgowAuthOverlay = hideOverlay;
+  window.updateTimestamp = updateTimestamp;
+  window.verifyOgowGoogleAccess = verifyOgowGoogleAccess;
+  window.loadProtectedDashboardData = loadProtectedDashboardData;
+  window.syncProtectedData = syncProtectedData;
   window.initializeOgowAuth = initializeOgowAuth;
   window.retryGoogleSignIn = initializeOgowAuth;
 
-  function bindEvents(){
-    byId('btnSyncLive').addEventListener('click', () => {
-      if(!window.ogowCredential){
-        showOgowAuthOverlay();
-        setAuthMessage('Please sign in with your @ogowhealth.com Google account.', false);
-        return;
-      }
-      syncProtectedData();
-    });
-
-    DOM.btnReload.addEventListener('click', () => restoreAuthorizedRows());
-    DOM.btnResetAll.addEventListener('click', () => { resetFilters(); restoreAuthorizedRows(true); });
-    DOM.btnResetFilters.addEventListener('click', () => resetFilters());
-    DOM.weeklyPeriod.addEventListener('change', () => renderDashboard());
-    DOM.fromPeriod.addEventListener('change', () => renderDashboard());
-    DOM.toPeriod.addEventListener('change', () => renderDashboard());
-    DOM.regionFilter.addEventListener('change', () => { updateFilterOptions(); renderDashboard(); });
-    DOM.districtFilter.addEventListener('change', () => { updateFilterOptions(); renderDashboard(); });
-    DOM.facilityFilter.addEventListener('change', () => renderDashboard());
-    DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c => c.addEventListener('click', () => setPreset(c.dataset.preset)));
-    document.querySelectorAll('#viewToggle .vt-btn').forEach(b => b.addEventListener('click', () => toggleView(b.dataset.view)));
-
-    DOM.jsonUpload.addEventListener('change', async ev => {
-      const file = ev.target.files?.[0];
-      if(!file) return;
-      try{
-        const txt = await file.text();
-        const json = JSON.parse(txt);
-        const rows = Array.isArray(json) ? json : Array.isArray(json.rows) ? json.rows : [];
-        if(!rows.length) throw new Error('No rows');
-        window.ogowAuthorizedRows = rows;
-        loadRows(rows, `uploaded (${file.name})`);
-        toast('Dataset uploaded');
-      }catch(e){
-        console.error(e);
-        toast('Invalid JSON');
-      }
-    });
-
-    byId('exportPerfChart').addEventListener('click', () => exportChart(STATE.charts.performance, 'weekly-performance-trend.png'));
-    byId('exportDensityCsv').addEventListener('click', () => exportXlsx('density-map.xlsx', STATE.currentDensityRows));
-    byId('exportFollowup
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+})();
