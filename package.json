@@ -1,0 +1,17 @@
+{
+  "name": "ogow-health-weekly-performance-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protected OGOW Health weekly performance dashboard with Google sign-in and Netlify functions.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check:auth": "node --check auth-gate.js",
+    "check:functions": "node --check netlify/functions/verify-google-auth.js && node --check netlify/functions/dashboard-data.js && node --check netlify/functions/public-config.js",
+    "check:all": "npm run check:auth && npm run check:functions"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.15.1"
+  }
+}
