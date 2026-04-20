@@ -9,11 +9,6 @@
   NODE_VERSION = "20"
   GITHUB_DATA_PATH = "data/epi_dashboard_data.json"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 [[headers]]
   for = "/*"
   [headers.values]
