@@ -1,464 +1,1123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ogow Health Weekly Performance Dashboard</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.css" />
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    :root{
-      --bg:#050f0c;--panel:rgba(10,26,21,.92);--panel2:rgba(8,22,17,.97);
-      --line:rgba(214,245,233,.08);--line2:rgba(214,245,233,.14);
-      --text:#eaf7f2;--dim:#a0c2b6;--dim2:#7a9e91;
-      --teal:#2ec4b6;--teal2:#6ee8db;--green:#4ac87e;--gold:#eac04f;--red:#e0665f;
-      --blue:#8ad9ff;--violet:#c49dff;
-      --glow-teal:0 0 40px rgba(46,196,182,.18);
-      --r:20px;--r2:14px;--t:.2s ease;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;color:var(--text);background:linear-gradient(168deg,#040d0a 0%,#071914 50%,#050f0c 100%);min-height:100vh;padding:16px}
-    .app{max-width:1720px;margin:0 auto;display:grid;gap:14px}
-    .header{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:16px 20px;border-radius:24px;background:linear-gradient(135deg,rgba(16,52,44,.95),rgba(8,22,18,.97));border:1px solid var(--line2);box-shadow:var(--glow-teal)}
-    .header-left{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-    .logo-mark{width:auto;height:50px;border-radius:0;background:transparent;display:grid;place-items:center;flex-shrink:0}
-    .logo-mark img{height:46px;width:auto;object-fit:contain}
-    .header-text h1{font-size:22px;font-weight:900;letter-spacing:-.03em;line-height:1.15}
-    .header-text .scope{font-size:12px;color:var(--teal2);font-weight:700;margin-top:3px}
-    .internal-tagline{display:inline-flex;align-items:center;justify-content:center;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:rgba(46,196,182,.16);color:var(--teal2);border:1px solid rgba(110,232,219,.34);box-shadow:0 6px 18px rgba(46,196,182,.10);margin-bottom:6px}
-    .header-actions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
-    .btn-sm,.chip-sm,.upload-sm,.project-btn,.btn-ghost-sm,.btn-sync{appearance:none;border:none;outline:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;padding:8px 12px;border-radius:10px;white-space:nowrap;transition:var(--t)}
-    .btn-sm{background:linear-gradient(135deg,var(--teal),#18a396);color:#071914;box-shadow:0 6px 18px rgba(46,196,182,.16)}
-    .chip-sm,.upload-sm,.project-btn,.btn-ghost-sm{color:var(--text);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
-    .chip-sm:hover,.upload-sm:hover,.project-btn:hover,.btn-sm:hover,.btn-ghost-sm:hover,.btn-sync:hover{transform:translateY(-1px)}
-    .chip-sm.active,.project-btn.active{background:rgba(46,196,182,.14);border-color:rgba(110,232,219,.26);color:var(--teal2);box-shadow:0 4px 16px rgba(46,196,182,.10)}
-    .upload-sm input{display:none}
-    .btn-sync{background:linear-gradient(135deg,#1a7a6f,#14605a);color:var(--teal2);border:1px solid rgba(110,232,219,.22);box-shadow:0 4px 14px rgba(46,196,182,.12)}
-    .btn-sync.syncing{opacity:.7;pointer-events:none;animation:pulse 1.2s ease infinite}
-    @keyframes pulse{0%,100%{opacity:.7}50%{opacity:1}}
-    .view-toggle{display:inline-flex;border-radius:12px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);overflow:hidden}
-    .vt-btn{appearance:none;border:none;outline:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;padding:8px 16px;color:var(--dim);background:transparent;transition:var(--t);border-right:1px solid rgba(255,255,255,.06)}
-    .vt-btn:last-child{border-right:none}
-    .vt-btn.active{color:var(--teal2);background:rgba(46,196,182,.14)}
-    .vt-btn:hover:not(.active){background:rgba(255,255,255,.04)}
-    .filter-bar{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:14px 18px;border-radius:20px;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line)}
-    .ctrl-col{display:flex;flex-direction:column;gap:8px}
-    .preset-row{display:flex;gap:6px;flex-wrap:wrap}
-    .filter-grid{display:grid;gap:10px;align-items:end}
-    .filter-grid.mode-trend{grid-template-columns:1fr repeat(3,minmax(0,1fr)) auto}
-    .filter-grid.mode-weekly{grid-template-columns:minmax(0,1fr) repeat(3,minmax(0,1fr)) auto}
-    .time-box{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;border-radius:14px;background:linear-gradient(180deg,rgba(46,196,182,.07),rgba(255,255,255,.015));border:1px solid rgba(110,232,219,.18)}
-    .field-sm{display:grid;gap:4px}
-    .field-sm label{font-size:10px;color:var(--dim);text-transform:uppercase;font-weight:800;letter-spacing:.06em}
-    select{width:100%;height:36px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:#0e2a24;color:#eaf7f2;font-family:inherit;font-size:12px;font-weight:600;outline:none;transition:var(--t)}
-    select:focus{border-color:rgba(110,232,219,.30);box-shadow:0 0 0 3px rgba(46,196,182,.08)}
-    select option{background:#0e2a24;color:#eaf7f2;padding:8px}
-    select option:checked{background:#1a4a40;color:#6ee8db}
-    .project-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-    .status-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
-    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-    .badge-sm{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:var(--dim);font-size:11px;font-weight:700}
-    .guide-bar{padding:10px 16px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);color:var(--dim);font-size:12px;line-height:1.7}
-    .guide-bar strong{color:var(--text)}
-    .score-strip{display:grid;grid-template-columns:repeat(4,1fr) 1.6fr;gap:12px}
-    .sc{position:relative;padding:14px 16px;border-radius:var(--r);overflow:hidden;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);transition:var(--t)}
-    .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0}
-    .sc:nth-child(1)::before{background:linear-gradient(90deg,var(--teal),var(--teal2))}
-    .sc:nth-child(2)::before{background:linear-gradient(90deg,var(--blue),#b3e8ff)}
-    .sc:nth-child(3)::before{background:linear-gradient(90deg,var(--gold),#f5da80)}
-    .sc:nth-child(4)::before{background:linear-gradient(90deg,var(--violet),#ddc4ff)}
-    .sc:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.22)}
-    .sc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-    .sc-icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;flex-shrink:0}
-    .sc-icon svg{width:18px;height:18px}
-    .sc-label{font-size:10px;color:var(--dim);text-transform:uppercase;font-weight:800;letter-spacing:.06em}
-    .sc-value{font-size:clamp(24px,2.4vw,32px);font-weight:900;letter-spacing:-.03em;line-height:1.1;margin-top:6px}
-    .sc-spark{margin-top:8px;height:32px;width:100%;opacity:.7}
-    .sc-change{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:8px;font-size:10px;font-weight:800}
-    .sc-change.up{background:rgba(74,200,126,.12);color:var(--green)}
-    .sc-change.down{background:rgba(224,102,95,.12);color:var(--red)}
-    .sc-change.neutral{background:rgba(255,255,255,.06);color:var(--dim)}
-    .fac-snap{padding:14px 16px;border-radius:var(--r);background:linear-gradient(135deg,rgba(14,38,32,.96),rgba(10,26,22,.97));border:1px solid var(--line2);display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .fac-snap::before{display:none}
-    .fac-donut{display:flex;align-items:center;justify-content:center}
-    .fac-donut-chart{width:120px;height:120px}
-    .fac-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:center}
-    .fac-stat{padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
-    .fac-stat .fs-label{font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.06em}
-    .fac-stat .fs-val{font-size:20px;font-weight:900;letter-spacing:-.02em;margin-top:2px}
-    .view-section.hidden{display:none}
-    .card{position:relative;border-radius:var(--r);overflow:hidden;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line)}
-    .card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;flex-wrap:wrap}
-    .card-title{font-size:15px;font-weight:800;letter-spacing:-.01em}
-    .card-sub{color:var(--dim);font-size:11px;margin-top:3px}
-    .panel{padding:0 18px 16px}
-    .chart{width:100%;height:340px;border-radius:16px;overflow:hidden}
-    .chart.tall{height:400px}
-    .chart.mini{height:200px}
-    .table-wrap{padding:10px 18px 16px}
-    .table{width:100%;height:470px;border-radius:16px;overflow:hidden;background:rgba(255,255,255,.02)}
-    .rank-list{display:grid;gap:8px}
-    .rank-row{display:grid;grid-template-columns:38px 1.7fr .85fr .85fr 110px;gap:8px;align-items:center;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);transition:var(--t)}
-    .rank-row:hover{background:rgba(255,255,255,.06)}
-    .rank-pos{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:13px;font-weight:900;background:rgba(46,196,182,.13);color:var(--teal2)}
-    .rank-name{font-weight:800;font-size:13px}
-    .heatbar{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
-    .heatbar>span{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--red))}
-    .legend-stack{display:grid;gap:8px;margin-top:10px}
-    .legend-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);color:var(--dim);font-size:12px}
-    .legend-left{display:flex;align-items:center;gap:8px;color:var(--text);font-weight:700}
-    .empty-state{padding:24px 18px;color:var(--dim);text-align:center;font-size:13px}
-    .weekly-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;padding:0 18px 16px}
-    .wk-fac{padding:12px 14px;border-radius:14px;transition:var(--t)}
-    .wk-fac:hover{transform:translateY(-1px)}
-    .wk-fac.status-high{background:rgba(74,200,126,.06);border:1px solid rgba(74,200,126,.18)}
-    .wk-fac.status-low{background:rgba(234,192,79,.06);border:1px solid rgba(234,192,79,.18)}
-    .wk-fac.status-inactive{background:rgba(224,102,95,.06);border:1px solid rgba(224,102,95,.18)}
-    .wk-fac-name{font-weight:800;font-size:13px;margin-bottom:6px}
-    .wk-fac-meta{display:flex;gap:12px;font-size:11px;color:var(--dim);flex-wrap:wrap}
-    .wk-fac-meta span{display:flex;align-items:center;gap:4px}
-    .wk-status{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800}
-    .ag-theme-quartz-dark{--ag-background-color:#0c221c;--ag-foreground-color:#eaf7f2;--ag-secondary-foreground-color:#93b4a7;--ag-header-background-color:#14332d;--ag-odd-row-background-color:rgba(255,255,255,.012);--ag-row-hover-color:rgba(46,196,182,.08);--ag-selected-row-background-color:rgba(46,196,182,.14);--ag-border-color:rgba(255,255,255,.07);--ag-header-foreground-color:#e5f6f0;--ag-font-family:'Inter',sans-serif;--ag-wrapper-border-radius:16px;--ag-border-radius:16px;--ag-header-height:42px;--ag-row-height:40px;--ag-input-focus-border-color:#6ee8db}
-    .loading-overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(4,10,8,.6);backdrop-filter:blur(8px);z-index:9999}
-    .loading-overlay.show{display:grid}
-    .loading-card{width:min(90vw,380px);padding:22px;border-radius:22px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(14,38,32,.96),rgba(10,28,23,.96));box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
-    .spinner{width:48px;height:48px;margin:0 auto 12px;border-radius:50%;border:3px solid rgba(255,255,255,.08);border-top-color:var(--teal2);animation:spin .85s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .toast{position:fixed;right:16px;bottom:16px;display:none;max-width:380px;padding:10px 14px;border-radius:12px;background:rgba(10,28,23,.96);color:var(--text);border:1px solid rgba(255,255,255,.08);font-size:12px;z-index:9998}
-    .toast.show{display:block}
-    .footer{text-align:center;color:var(--dim2);font-size:11px;padding:2px 0 14px}
-    @media(max-width:1460px){.score-strip{grid-template-columns:repeat(2,1fr)}.fac-snap{grid-column:span 2}.filter-grid.mode-trend,.filter-grid.mode-weekly{grid-template-columns:repeat(3,1fr)}}
-    @media(max-width:980px){.header{grid-template-columns:1fr}.filter-grid.mode-trend,.filter-grid.mode-weekly{grid-template-columns:1fr 1fr}.time-box{grid-column:span 2}.score-strip{grid-template-columns:1fr 1fr}.fac-snap{grid-column:span 2;grid-template-columns:1fr}.rank-row{grid-template-columns:38px 1fr;gap:6px}.rank-row>:nth-child(n+3){grid-column:2}}
-    @media(max-width:640px){body{padding:10px}.score-strip,.filter-grid.mode-trend,.filter-grid.mode-weekly{grid-template-columns:1fr}.fac-snap{grid-column:span 1;grid-template-columns:1fr}.time-box{grid-column:span 1}.chart,.chart.tall,.chart.mini{height:280px}}
-  </style>
-</head>
-<body>
-<div id="ogow-auth-overlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(6,21,16,.82);backdrop-filter:blur(10px);padding:24px;">
-  <div style="width:min(92vw,460px);background:#ffffff;border:1px solid #d7e7e1;border-radius:20px;padding:28px;box-shadow:0 22px 70px rgba(0,0,0,.18);text-align:center;font-family:Inter,Segoe UI,Arial,sans-serif;color:#22322f;">
-    <div style="display:inline-flex;padding:6px 12px;border-radius:999px;background:#0e6d62;color:#fff;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;">INTERNAL</div>
-    <h2 style="margin:0 0 10px 0;color:#0a3a35;font-size:22px;">OGOW Health Staff Sign-In Required</h2>
-    <p style="margin:0 0 18px 0;color:#47625b;line-height:1.6;font-size:14px;">Please sign in with your <strong>@ogowhealth.com</strong> Google account to access this dashboard.</p>
-    <div id="googleSignInButton" style="display:flex;justify-content:center;"></div>
-    <div id="ogow-auth-message" style="min-height:20px;margin-top:14px;font-size:13px;color:#c24e45;font-weight:700;line-height:1.5;">Loading Google sign-in...</div>
-    <button id="retryGoogleSignIn" type="button" style="margin-top:10px;padding:10px 14px;border:none;border-radius:10px;background:#0e6d62;color:#fff;font-weight:700;cursor:pointer;">Retry sign-in</button>
-  </div>
-</div>
-<div class="loading-overlay" id="loadingOverlay"><div class="loading-card"><div class="spinner"></div><div style="font-size:16px;font-weight:800">Loading dashboard</div><div style="margin-top:6px;color:var(--dim);font-size:13px">Calculating facility metrics and rendering views.</div></div></div>
-<div class="toast" id="toast"></div>
-<div class="app" id="app" style="display:none">
-  <header class="header">
-    <div class="header-left">
-      <div class="logo-mark"><img src="data:image/png;base64,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" alt="Ogow Health" style="width:auto;height:46px;border-radius:4px" /></div>
-      <div class="header-text"><div class="internal-tagline">INTERNAL</div><h1>Health Facility Performance Dashboard</h1><div class="scope" id="scopeSummaryHero">Ogow Health &middot; staff sign-in required</div></div>
-    </div>
-    <div class="header-actions">
-      <div class="btn-sync" id="btnSyncLive" style="cursor:default;font-size:11px;padding:6px 12px;line-height:1.4;text-align:center">&#128274; Staff sign-in required</div>
-      <label class="upload-sm">Upload JSON<input type="file" id="jsonUpload" accept=".json,application/json" /></label>
-      <button class="chip-sm" id="btnReload">Reload</button>
-      <button class="btn-sm" id="btnResetAll">Reset</button>
-    </div>
-  </header>
-
-  <div class="guide-bar">
-    <strong>How to read:</strong> <strong>Trend view</strong> analyses a From/To range using historic weekly data. <strong>Weekly view</strong> shows a single-week snapshot with a historical trend line. Follow-up priority: <strong>Inactive + Low</strong>.
-  </div>
-
-  <section class="filter-bar">
-    <div class="ctrl-col">
-      <div>
-        <div style="font-size:10px;color:var(--dim);text-transform:uppercase;font-weight:800;letter-spacing:.06em;margin-bottom:4px">View</div>
-        <div class="view-toggle" id="viewToggle">
-          <button class="vt-btn active" data-view="trend">&#128200; Trend</button>
-          <button class="vt-btn" data-view="weekly">&#128197; Weekly</button>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--dim);text-transform:uppercase;font-weight:800;letter-spacing:.06em;margin-bottom:4px">Presets</div>
-        <div class="preset-row" id="presetGroup">
-          <button class="chip-sm" data-preset="single">1W</button>
-          <button class="chip-sm" data-preset="last4">4W</button>
-          <button class="chip-sm" data-preset="last8">8W</button>
-          <button class="chip-sm" data-preset="all">All</button>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="filter-grid mode-trend" id="filterGrid">
-        <!-- Trend: time-box + Region + District + Facility + Reset -->
-        <!-- Weekly: weeklyPeriod + Region + District + Facility + Reset -->
-        <!-- Content is dynamically controlled by JS -->
-        <div class="time-box" id="timeBoxWrap">
-          <div class="field-sm"><label>From Period</label><select id="fromPeriod"></select></div>
-          <div class="field-sm"><label>To Period</label><select id="toPeriod"></select></div>
-        </div>
-        <div class="field-sm" id="weeklyFieldWrap" style="display:none"><label>Weekly Period</label><select id="weeklyPeriod"></select></div>
-        <div class="field-sm"><label>Region</label><select id="regionFilter"></select></div>
-        <div class="field-sm"><label>District</label><select id="districtFilter"></select></div>
-        <div class="field-sm"><label>Health Facility</label><select id="facilityFilter"></select></div>
-        <button class="btn-ghost-sm" id="btnResetFilters" style="align-self:end;height:36px">Reset</button>
-      </div>
-      <div class="project-row" id="projectButtons"></div>
-      <div class="status-row">
-        <span class="badge-sm"><span class="dot" style="background:var(--green)"></span>High</span>
-        <span class="badge-sm"><span class="dot" style="background:var(--gold)"></span>Low</span>
-        <span class="badge-sm"><span class="dot" style="background:var(--red)"></span>Inactive</span>
-        <span class="badge-sm" id="filterSummary">No filter applied</span>
-        <span class="badge-sm" id="rangePill">Range: &mdash;</span>
-
-      </div>
-    </div>
-  </section>
-
-  <section class="score-strip" id="kpiGrid"></section>
-
-  <!-- TREND VIEW sections -->
-  <div class="view-section" id="viewTrend">
-    <section class="card" style="margin-bottom:14px"><div class="card-head"><div><div class="card-title">Weekly Performance Trend</div><div class="card-sub">High, Low-performing, and Inactive facility counts by week.</div></div><button class="btn-ghost-sm" id="exportPerfChart">Export PNG</button></div><div class="panel"><div id="performanceTrendChart" class="chart"></div></div></section>
-
-    <section class="card" style="margin-bottom:14px"><div class="card-head"><div><div class="card-title">Top Defaulters Heat Rank</div><div class="card-sub">Ranked by severity: inactivity, low-performance persistence, recent status, and average activity.</div></div><button class="btn-ghost-sm" id="exportDefaultersCsv">Export CSV</button></div><div class="panel"><div id="topDefaultersList" class="rank-list"></div><div class="legend-stack"><div class="legend-item"><div class="legend-left"><span class="dot" style="background:var(--red)"></span>Severity</div><span>Inactive weeks weighted 2x over Low</span></div><div class="legend-item"><div class="legend-left"><span class="dot" style="background:var(--gold)"></span>Recency</div><span>Most recent weak status raises rank</span></div></div></div></section>
-    <section class="card" id="densitySection" style="margin-bottom:14px"><div class="card-head"><div><div class="card-title">Three-Headed Health-Status Density Map</div><div class="card-sub">High / Low / Inactive density (0-100%), worst and most recent status per facility.</div></div><button class="btn-ghost-sm" id="exportDensityCsv">Export Excel</button></div><div class="table-wrap"><div id="densityGrid" class="ag-theme-quartz-dark table"></div></div></section>
-  </div>
-
-  <!-- WEEKLY VIEW sections -->
-  <div class="view-section hidden" id="viewWeekly">
-    <section class="card" style="margin-bottom:14px"><div class="card-head"><div><div class="card-title" id="weeklyViewTitle">Weekly Snapshot</div><div class="card-sub">Per-facility performance for the selected reference week. Cards are color-coded by status.</div></div></div><div class="weekly-grid" id="weeklyGrid"></div></section>
-
-  </div>
-
-  <!-- ALWAYS VISIBLE: Follow-up -->
-  <section class="card"><div class="card-head"><div><div class="card-title">Composite Follow-up Table</div><div class="card-sub">Exportable list limited to Inactive and Low-performing facilities. Responsive to current view and filters.</div></div><button class="btn-ghost-sm" id="exportFollowupCsv">Export Excel</button></div><div class="table-wrap"><div id="followupGrid" class="ag-theme-quartz-dark table"></div></div></section>
-
-  <div class="footer">Ogow Health &middot; EPI Weekly Performance Intelligence &middot; INTERNAL STAFF DASHBOARD &middot; Protected via OGOW Google sign-in</div>
-</div>
 <script src="auth-gate.js"></script>
 <script>
-    const DEMO_ROWS = [];
-    window.OGOW_GOOGLE_CLIENT_ID = window.OGOW_GOOGLE_CLIENT_ID || 'REPLACE_WITH_GOOGLE_CLIENT_ID';
-    const OGOW_AUTH_ERROR = 'Access denied, User not permitted to view dashboard. Please sign in with your OGOW Health Google account.';
+(() => {
+  'use strict';
 
-    async function syncProtectedData(options={}){
-      const btn=document.getElementById('btnSyncLive');
-      const quiet=options.quiet===true;
-      try{
-        if(!window.ogowCredential||typeof window.loadProtectedDashboardData!=='function'){
-          if(typeof window.showOgowAuthOverlay==='function')window.showOgowAuthOverlay();
-          throw new Error(window.OGOW_AUTH_ERROR||OGOW_AUTH_ERROR);
+  const DEMO_ROWS = [];
+  window.OGOW_GOOGLE_CLIENT_ID = 'REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID';
+  const OGOW_AUTH_ERROR = 'Access denied, User not permitted to view dashboard. Please sign in with your OGOW Health Google account.';
+  const VERIFY_ENDPOINT = '/.netlify/functions/verify-google-auth';
+  const DATA_ENDPOINT = '/.netlify/functions/dashboard-data';
+
+  const STATE = window.STATE || {
+    raw: [],
+    periods: [],
+    currentView: 'trend',
+    project: 'ALL',
+    grids: {},
+    charts: {},
+    currentDensityRows: [],
+    currentFollowupRows: [],
+    currentDefaulterRows: []
+  };
+  window.STATE = STATE;
+
+  function byId(id){ return document.getElementById(id); }
+  function safeNum(v){ return Number.isFinite(Number(v)) ? Number(v) : 0; }
+  function fmt(v){ return new Intl.NumberFormat().format(Math.round(safeNum(v))); }
+  function dec(v){ return safeNum(v).toFixed(1); }
+  function statusRank(s){ return ({High:1,Low:2,Inactive:3}[s] || 0); }
+  function statusTone(s){ return COLORS[s] || '#a0c2b6'; }
+  function hasRealClientId(id){
+    return !!id &&
+      typeof id === 'string' &&
+      !/REPLACE_WITH_GOOGLE_CLIENT_ID|REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID|YOUR_REAL_GOOGLE_CLIENT_ID/i.test(id);
+  }
+
+  function setAuthMessage(message, isError=false){
+    const el = byId('ogow-auth-message');
+    if(!el) return;
+    el.textContent = message || '';
+    el.style.color = isError ? '#c24e45' : '#47625b';
+  }
+
+  function showOgowAuthOverlay(){
+    const overlay = byId('ogow-auth-overlay');
+    const app = byId('app');
+    if(overlay) overlay.style.display = 'flex';
+    if(app) app.style.display = 'none';
+  }
+
+  function hideOgowAuthOverlay(){
+    const overlay = byId('ogow-auth-overlay');
+    const app = byId('app');
+    if(overlay) overlay.style.display = 'none';
+    if(app) app.style.display = 'grid';
+  }
+
+  function setRetryBusy(on){
+    const btn = byId('retryGoogleSignIn');
+    if(!btn) return;
+    btn.disabled = !!on;
+    btn.style.opacity = on ? '0.7' : '1';
+    btn.textContent = on ? 'Loading...' : 'Retry sign-in';
+  }
+
+  function updateTimestamp(){
+    const btn = byId('btnSyncLive');
+    if(!btn) return;
+    if(window.ogowCredential){
+      btn.innerHTML = '&#9989; Signed in';
+      btn.style.cursor = 'pointer';
+      btn.style.opacity = '1';
+    }else{
+      btn.innerHTML = '&#128274; Staff sign-in required';
+      btn.style.cursor = 'pointer';
+      btn.style.opacity = '1';
+    }
+  }
+  window.updateTimestamp = updateTimestamp;
+
+  async function ensureGoogleScript(){
+    if(window.google && window.google.accounts && window.google.accounts.id) return true;
+
+    let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if(!script){
+      script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    return new Promise((resolve, reject) => {
+      const maxWait = 15000;
+      const started = Date.now();
+
+      const finish = () => {
+        if(window.google && window.google.accounts && window.google.accounts.id){
+          resolve(true);
+          return true;
         }
-        if(btn){btn.innerHTML='&#128339; Syncing...';btn.style.opacity='0.7'}
-        const rows=await window.loadProtectedDashboardData(window.ogowCredential);
-        window.ogowAuthorizedRows=Array.isArray(rows)?rows:[];
-        loadRows(window.ogowAuthorizedRows,'Authenticated protected dataset');
-        updateTimestamp();
-        if(!quiet)toast(`Synced ${window.ogowAuthorizedRows.length} protected rows`);
-      }catch(e){
-        console.error(e);
-        toast(e.message||window.OGOW_AUTH_ERROR||OGOW_AUTH_ERROR);
-      }finally{
-        if(btn)btn.style.opacity='1';
-      }
+        return false;
+      };
+
+      if(finish()) return;
+
+      const timer = setInterval(() => {
+        if(finish()){
+          clearInterval(timer);
+          return;
+        }
+        if(Date.now() - started > maxWait){
+          clearInterval(timer);
+          reject(new Error('Google sign-in library did not load.'));
+        }
+      }, 250);
+
+      script.addEventListener('error', () => {
+        clearInterval(timer);
+        reject(new Error('Failed to load Google sign-in library.'));
+      }, { once:true });
+    });
+  }
+
+  async function postJson(url, payload){
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+
+    const raw = await res.text();
+    let parsed = null;
+    try { parsed = raw ? JSON.parse(raw) : null; }
+    catch(_) { parsed = raw; }
+
+    if(!res.ok){
+      const msg =
+        (parsed && parsed.message) ||
+        (typeof parsed === 'string' ? parsed : '') ||
+        OGOW_AUTH_ERROR;
+      throw new Error(msg);
     }
+    return parsed;
+  }
 
-    const DOM={loading:document.getElementById('loadingOverlay'),toast:document.getElementById('toast'),jsonUpload:document.getElementById('jsonUpload'),btnReload:document.getElementById('btnReload'),btnResetAll:document.getElementById('btnResetAll'),btnResetFilters:document.getElementById('btnResetFilters'),presetGroup:document.getElementById('presetGroup'),weeklyPeriod:document.getElementById('weeklyPeriod'),fromPeriod:document.getElementById('fromPeriod'),toPeriod:document.getElementById('toPeriod'),regionFilter:document.getElementById('regionFilter'),districtFilter:document.getElementById('districtFilter'),facilityFilter:document.getElementById('facilityFilter'),projectButtons:document.getElementById('projectButtons'),rangePill:document.getElementById('rangePill'),scopeSummaryHero:document.getElementById('scopeSummaryHero'),filterSummary:document.getElementById('filterSummary'),kpiGrid:document.getElementById('kpiGrid'),performanceTrendChart:document.getElementById('performanceTrendChart'),topDefaultersList:document.getElementById('topDefaultersList'),viewTrend:document.getElementById('viewTrend'),viewWeekly:document.getElementById('viewWeekly'),weeklyGrid:document.getElementById('weeklyGrid'),weeklyViewTitle:document.getElementById('weeklyViewTitle'),filterGrid:document.getElementById('filterGrid'),timeBoxWrap:document.getElementById('timeBoxWrap'),weeklyFieldWrap:document.getElementById('weeklyFieldWrap'),weeklyTrendChart:null};
-    const COLORS={High:'#4ac87e',Low:'#eac04f',Inactive:'#e0665f'};
-    const safeNum=v=>Number.isFinite(Number(v))?Number(v):0;const fmt=v=>new Intl.NumberFormat().format(Math.round(safeNum(v)));const dec=v=>safeNum(v).toFixed(1);const statusRank=s=>({High:1,Low:2,Inactive:3}[s]||0);const statusTone=s=>COLORS[s]||'#a0c2b6';const showLoading=on=>DOM.loading.classList.toggle('show',!!on);
-    function toast(msg){DOM.toast.textContent=msg;DOM.toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>DOM.toast.classList.remove('show'),2400)}
-    function csvEscape(v){const s=String(v??'');return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
-    function exportCsv(name,rows){if(!rows?.length){toast('No rows');return}const h=Object.keys(rows[0]);const lines=[h.join(',')].concat(rows.map(r=>h.map(k=>csvEscape(r[k])).join(',')));const b=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
-    function exportXlsx(name,rows){
-      if(!rows?.length){toast('No rows');return}
-      const headers=Object.keys(rows[0]);
-      let html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>td,th{border:1px solid #ccc;padding:6px 10px;font-family:Calibri,Arial,sans-serif;font-size:11pt}th{background:#0d3b30;color:#fff;font-weight:bold;text-align:center}.inactive{background:#f4cccc;color:#cc0000;font-weight:bold;text-align:center}.low{background:#fff2cc;color:#bf8f00;font-weight:bold;text-align:center}.high{background:#d9ead3;color:#38761d;font-weight:bold;text-align:center}.row-inactive td:not(.inactive):not(.low):not(.high){background:#fce8e6}.row-low td:not(.inactive):not(.low):not(.high){background:#fef9e7}</style></head><body><table>';
-      html+='<tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr>';
-      rows.forEach(r=>{
-        const ws=r.worstStatus||r.statusCurrent||'';
-        const rowCls=ws==='Inactive'?'row-inactive':ws==='Low'?'row-low':'';
-        html+='<tr class="'+rowCls+'">';
-        headers.forEach(h=>{
-          const val=String(r[h]??'');
-          const isSt=h.toLowerCase().includes('status')||h.toLowerCase().includes('worst')||h.toLowerCase().includes('recent');
-          let cls='';
-          if(isSt){if(val==='Inactive')cls='inactive';else if(val==='Low')cls='low';else if(val==='High')cls='high'}
-          html+='<td class="'+cls+'">'+val+'</td>';
-        });
-        html+='</tr>';
-      });
-      html+='</table></body></html>';
-      const blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8;'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download=name.replace('.xlsx','.xls');a.click();
-      URL.revokeObjectURL(url);
-      toast('Excel exported with colors');
-    }
-    function exportChart(chart,name){if(!chart)return;const u=chart.getDataURL({pixelRatio:2,backgroundColor:'#071914'});const a=document.createElement('a');a.href=u;a.download=name;a.click()}
-    function fillSelect(sel,items,selected,includeAll=true,allLabel='All'){const o=[];if(includeAll)o.push(`<option value="ALL">${allLabel}</option>`);items.forEach(i=>o.push(`<option value="${i}">${i}</option>`));sel.innerHTML=o.join('');if(selected&&Array.from(sel.options).some(opt=>opt.value===selected))sel.value=selected}
-    function normalizeRow(row){return{periodId:String(row.periodId||row.period||row.week||'').trim(),periodLabel:String(row.periodLabel||row.period_label||'').trim(),weekStart:String(row.weekStart||row.week_start||row.start||'').trim(),weekEnd:String(row.weekEnd||row.week_end||row.end||'').trim(),region:String(row.region||'').trim()||'Unknown',district:String(row.district||'').trim()||'Unknown',facility:String(row.facility||row.healthFacility||row.health_facility||'').trim()||'Unknown',project:String(row.project||row.projectName||row.project_name||'').trim()||'Unassigned',children:safeNum(row.children),caregivers:safeNum(row.caregivers),cases:safeNum(row.cases),avgDaysActive:safeNum(row.avgDaysActive??row.avg_days_active),benchmarkTarget:safeNum(row.benchmarkTarget??row.benchmark_target??0),status:['High','Low','Inactive'].includes(row.status)?row.status:'Low'}}
-    function fmtDateShort(d){if(!d)return'';const parts=d.split('-');if(parts.length!==3)return d;const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return months[parseInt(parts[1])-1]+' '+parseInt(parts[2])}
-    function buildPeriodMeta(rows){const map=new Map();rows.forEach(r=>{if(!map.has(r.periodId))map.set(r.periodId,{id:r.periodId,label:r.periodLabel||r.periodId,start:r.weekStart||'',end:r.weekEnd||''})});return Array.from(map.values()).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).map((p,i)=>{const short=`${p.id} (${fmtDateShort(p.start)} to ${fmtDateShort(p.end)})`;return{...p,idx:i,nice:short,short:short}})}
-    function periodShort(pid){if(!pid)return'';const p=STATE.periods.find(x=>x.id===pid);return p?p.short:pid}
-    function setProjectButtons(projects){const cur=STATE.project||'ALL';const btns=[{label:'All Projects',value:'ALL'}].concat(projects.map(p=>({label:p,value:p})));DOM.projectButtons.innerHTML=btns.map(b=>`<button class="project-btn ${b.value===cur?'active':''}" data-project="${b.value}">${b.label}</button>`).join('');DOM.projectButtons.querySelectorAll('.project-btn').forEach(b=>{b.addEventListener('click',()=>{STATE.project=b.dataset.project;setProjectButtons(projects);renderDashboard()})})}
-    function populateControls(){const p=STATE.periods,labels=p.map(x=>x.nice),ids=p.map(x=>x.id);DOM.weeklyPeriod.innerHTML=ids.map((id,i)=>`<option value="${id}">${labels[i]}</option>`).join('');DOM.fromPeriod.innerHTML=ids.map((id,i)=>`<option value="${id}">${labels[i]}</option>`).join('');DOM.toPeriod.innerHTML=ids.map((id,i)=>`<option value="${id}">${labels[i]}</option>`).join('');const last=p[p.length-1]?.id;DOM.weeklyPeriod.value=last;DOM.fromPeriod.value=p[Math.max(0,p.length-4)]?.id||last;DOM.toPeriod.value=last;updateFilterOptions();setProjectButtons([...new Set(STATE.raw.map(r=>r.project))].sort())}
+  async function verifyOgowGoogleAccess(credential){
+    return postJson(VERIFY_ENDPOINT, { credential });
+  }
 
-    function currentPeriodRange(){if(STATE.currentView==='weekly'){const wId=DOM.weeklyPeriod.value;return wId?[wId]:[]}const fId=DOM.fromPeriod.value,tId=DOM.toPeriod.value;const fIdx=STATE.periods.find(p=>p.id===fId)?.idx??0,tIdx=STATE.periods.find(p=>p.id===tId)?.idx??STATE.periods.length-1;const s=Math.min(fIdx,tIdx),e=Math.max(fIdx,tIdx);return STATE.periods.slice(s,e+1).map(p=>p.id)}
-    function getFilteredRows(){const ids=new Set(currentPeriodRange());const reg=DOM.regionFilter.value||'ALL',dis=DOM.districtFilter.value||'ALL',fac=DOM.facilityFilter.value||'ALL',prj=STATE.project||'ALL';return STATE.raw.filter(r=>ids.has(r.periodId)&&(reg==='ALL'||r.region===reg)&&(dis==='ALL'||r.district===dis)&&(fac==='ALL'||r.facility===fac)&&(prj==='ALL'||r.project===prj))}
-    function updateFilterOptions(){const ids=new Set(currentPeriodRange());const inRange=STATE.raw.filter(r=>ids.has(r.periodId)&&((STATE.project||'ALL')==='ALL'||r.project===STATE.project));const cR=DOM.regionFilter.value||'ALL';fillSelect(DOM.regionFilter,[...new Set(inRange.map(r=>r.region))].sort(),cR);const afterR=inRange.filter(r=>cR==='ALL'||r.region===cR);const cD=DOM.districtFilter.value||'ALL';fillSelect(DOM.districtFilter,[...new Set(afterR.map(r=>r.district))].sort(),cD);const afterD=afterR.filter(r=>cD==='ALL'||r.district===cD);const cF=DOM.facilityFilter.value||'ALL';fillSelect(DOM.facilityFilter,[...new Set(afterD.map(r=>r.facility))].sort(),cF,true,'All Facilities')}
-    function summarizeFacilities(rows){const g=new Map();rows.forEach(r=>{const k=[r.region,r.district,r.facility,r.project].join('||');if(!g.has(k))g.set(k,{region:r.region,district:r.district,facility:r.facility,project:r.project,rows:[]});g.get(k).rows.push(r)});return Array.from(g.values()).map(item=>{const tw=item.rows.length||1,iw=item.rows.filter(r=>r.status==='Inactive').length,lw=item.rows.filter(r=>r.status==='Low').length,hw=item.rows.filter(r=>r.status==='High').length;const ws=item.rows.reduce((a,r)=>statusRank(r.status)>statusRank(a)?r.status:a,'High');const lr=item.rows.slice().sort((a,b)=>a.periodId.localeCompare(b.periodId,undefined,{numeric:true})).slice(-1)[0];const ac=item.rows.reduce((s,r)=>s+r.children,0)/tw,ag=item.rows.reduce((s,r)=>s+r.caregivers,0)/tw,ax=item.rows.reduce((s,r)=>s+r.cases,0)/tw,ad=item.rows.reduce((s,r)=>s+r.avgDaysActive,0)/tw;const ss=iw*6+lw*3+(lr?.status==='Inactive'?4:lr?.status==='Low'?2:0)+Math.max(0,5-ad);const sorted=item.rows.slice().sort((a,b)=>a.periodId.localeCompare(b.periodId,undefined,{numeric:true}));const l3=sorted.slice(-3);const st3=l3.length>=3?{s:l3[0].status,id:l3[0].periodId}:{s:'—',id:''};const st2=l3.length>=2?{s:l3[l3.length-2].status,id:l3[l3.length-2].periodId}:{s:'—',id:''};const st1=l3.length>=1?{s:l3[l3.length-1].status,id:l3[l3.length-1].periodId}:{s:'—',id:''};return{region:item.region,district:item.district,facility:item.facility,project:item.project,totalWeeks:tw,inactiveWeeks:iw,lowWeeks:lw,highWeeks:hw,avgChildren:Number(ac.toFixed(1)),avgCaregivers:Number(ag.toFixed(1)),avgCases:Number(ax.toFixed(1)),avgDays:Number(ad.toFixed(2)),worstStatus:ws,recentStatus:lr?.status||'High',highDensity:Number((hw/tw*100).toFixed(0)),lowDensity:Number((lw/tw*100).toFixed(0)),inactiveDensity:Number((iw/tw*100).toFixed(0)),severityScore:Number(ss.toFixed(1)),statusMinus2:st3.s,statusMinus2Id:st3.id,statusMinus1:st2.s,statusMinus1Id:st2.id,statusCurrent:st1.s,statusCurrentId:st1.id}}).sort((a,b)=>b.severityScore-a.severityScore||a.facility.localeCompare(b.facility))}
-    function buildWeeklySeries(rows){return STATE.periods.filter(p=>currentPeriodRange().includes(p.id)).map(p=>{const b=rows.filter(r=>r.periodId===p.id);return{periodId:p.id,label:p.id,children:b.reduce((s,r)=>s+r.children,0),caregivers:b.reduce((s,r)=>s+r.caregivers,0),cases:b.reduce((s,r)=>s+r.cases,0),avgDays:b.length?b.reduce((s,r)=>s+r.avgDaysActive,0)/b.length:0,high:b.filter(r=>r.status==='High').length,low:b.filter(r=>r.status==='Low').length,inactive:b.filter(r=>r.status==='Inactive').length}})}
+  async function loadProtectedDashboardData(credential){
+    const data = await postJson(DATA_ENDPOINT, { credential });
+    if(Array.isArray(data)) return data;
+    if(data && Array.isArray(data.rows)) return data.rows;
+    return [];
+  }
 
-    function statusBadge(params){const v=params.value||'',t=statusTone(v);return`<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:${t}1e;border:1px solid ${t}44;color:${t};font-weight:800;font-size:11px">\u25cf ${v}</span>`}
-    function densityBarRenderer(color){return params=>{const val=safeNum(params.value);return`<div style="display:flex;align-items:center;gap:8px;min-width:130px"><div style="flex:1;height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${val}%;height:100%;background:linear-gradient(90deg,${color}66,${color});border-radius:999px"></div></div><span style="font-weight:800;color:${color};font-size:12px">${val}%</span></div>`}}
-    function statusRowStyle(params){const ws=params.data?.worstStatus||'';if(ws==='Inactive')return{background:'rgba(224,102,95,.10)',borderLeft:'3px solid #e0665f'};if(ws==='Low')return{background:'rgba(234,192,79,.08)',borderLeft:'3px solid #eac04f'};return null}
-    function ensureGrids(){if(!STATE.grids.density){STATE.grids.density=agGrid.createGrid(document.getElementById('densityGrid'),{columnDefs:[{field:'region',headerName:'Region',minWidth:110},{field:'district',headerName:'District',minWidth:110},{field:'facility',headerName:'Facility',minWidth:170,flex:1.2},{field:'project',headerName:'Project',minWidth:130},{field:'highDensity',headerName:'High %',minWidth:140,cellRenderer:densityBarRenderer(COLORS.High),comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'lowDensity',headerName:'Low %',minWidth:140,cellRenderer:densityBarRenderer(COLORS.Low),comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'inactiveDensity',headerName:'Inactive %',minWidth:150,cellRenderer:densityBarRenderer(COLORS.Inactive),comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'worstStatus',headerName:'Worst',minWidth:120,cellRenderer:statusBadge},{field:'recentStatus',headerName:'Recent',minWidth:120,cellRenderer:statusBadge}],defaultColDef:{sortable:true,filter:true,resizable:true,unSortIcon:true},rowData:[],animateRows:true,suppressCellFocus:true,getRowStyle:statusRowStyle})}if(!STATE.grids.followup){STATE.grids.followup=agGrid.createGrid(document.getElementById('followupGrid'),{columnDefs:[{field:'region',headerName:'Region',minWidth:110},{field:'district',headerName:'District',minWidth:110},{field:'facility',headerName:'Facility',minWidth:170,flex:1.1},{field:'project',headerName:'Project',minWidth:130},{field:'worstStatus',headerName:'Worst Status',minWidth:120,cellRenderer:statusBadge},{field:'statusMinus2',headerName:'Status (last 2 wks)',minWidth:150,cellRenderer:statusBadge},{field:'statusMinus1',headerName:'Status (last wk)',minWidth:140,cellRenderer:statusBadge},{field:'statusCurrent',headerName:'Status (current wk)',minWidth:150,cellRenderer:statusBadge},{field:'inactiveWeeks',headerName:'Inactive Wks',minWidth:110,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'lowWeeks',headerName:'Low Wks',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'children',headerName:'Children',minWidth:95,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'caregivers',headerName:'Caregivers',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'avgDays',headerName:'Avg Days',minWidth:90,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'fromPeriod',headerName:'From Period',minWidth:200},{field:'toPeriod',headerName:'To Period',minWidth:200}],defaultColDef:{sortable:true,filter:true,resizable:true,unSortIcon:true},rowData:[],animateRows:true,suppressCellFocus:true,getRowStyle:statusRowStyle})}}
-    function sparkSvg(series,color,height=32){if(!series.length)return'';const max=Math.max(...series,1),w=120,h=height;const pts=series.map((v,i)=>`${(i/(series.length-1||1))*w},${h-((v/max)*h*.85+h*.05)}`).join(' ');return`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block"><defs><linearGradient id="g_${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".18"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><polyline fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/><polygon fill="url(#g_${color.replace('#','')})" points="0,${h} ${pts} ${w},${h}"/></svg>`}
-    function trendBadge(series){if(series.length<2)return'<span class="sc-change neutral">\u2014</span>';const prev=series[series.length-2]||0,cur=series[series.length-1]||0;if(!prev&&!cur)return'<span class="sc-change neutral">0%</span>';const pct=prev===0?100:((cur-prev)/prev*100);const cls=pct>0?'up':pct<0?'down':'neutral';const arrow=pct>0?'\u25B2':pct<0?'\u25BC':'\u25CF';return`<span class="sc-change ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`}
+  window.verifyOgowGoogleAccess = verifyOgowGoogleAccess;
+  window.loadProtectedDashboardData = loadProtectedDashboardData;
+  window.showOgowAuthOverlay = showOgowAuthOverlay;
+  window.hideOgowAuthOverlay = hideOgowAuthOverlay;
+  window.OGOW_AUTH_ERROR = OGOW_AUTH_ERROR;
 
-    function buildFullHistoricalSeries(){
-      return STATE.periods.map(p=>{
-        const b=STATE.raw.filter(r=>r.periodId===p.id);
-        return{label:p.id,children:b.reduce((s,r)=>s+r.children,0),caregivers:b.reduce((s,r)=>s+r.caregivers,0),cases:b.reduce((s,r)=>s+r.cases,0),avgDays:b.length?b.reduce((s,r)=>s+r.avgDaysActive,0)/b.length:0};
-      });
-    }
-    function renderKpis(summaryRows,weeklySeries){
-      const tc=weeklySeries.reduce((s,r)=>s+r.children,0),tg=weeklySeries.reduce((s,r)=>s+r.caregivers,0),ad=weeklySeries.length?weeklySeries.reduce((s,r)=>s+r.avgDays,0)/weeklySeries.length:0,ts=weeklySeries.reduce((s,r)=>s+r.cases,0);const tf=summaryRows.length,hc=summaryRows.filter(r=>r.worstStatus==='High').length,ic=summaryRows.filter(r=>r.worstStatus==='Inactive').length,lc=summaryRows.filter(r=>r.worstStatus==='Low').length,fu=ic+lc;
-      const hist=buildFullHistoricalSeries();
-      const cs=hist.map(r=>r.children),gs=hist.map(r=>r.caregivers),ds=hist.map(r=>r.avgDays),ss=hist.map(r=>r.cases);
-      const isWeekly=STATE.currentView==='weekly';
-      const weekLabel=isWeekly?(' — '+periodShort(DOM.weeklyPeriod.value)):'';
-      const icons=[{bg:'rgba(46,196,182,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#6ee8db" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>'},{bg:'rgba(138,217,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#8ad9ff" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>'},{bg:'rgba(234,192,79,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#eac04f" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'},{bg:'rgba(196,157,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#c49dff" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'}];
-      const cards=[{l:'Children Onboarded'+weekLabel,v:fmt(tc),sp:sparkSvg(cs,'#6ee8db'),tr:trendBadge(cs),ic:icons[0]},{l:'Caregiver Onboarded'+weekLabel,v:fmt(tg),sp:sparkSvg(gs,'#8ad9ff'),tr:trendBadge(gs),ic:icons[1]},{l:'Avg Active Days'+weekLabel,v:dec(ad),sp:sparkSvg(ds,'#eac04f'),tr:trendBadge(ds),ic:icons[2]},{l:'Cases Administered'+weekLabel,v:fmt(ts),sp:sparkSvg(ss,'#c49dff'),tr:trendBadge(ss),ic:icons[3]}];
-      let html=cards.map(c=>`<div class="sc"><div class="sc-top"><div><div class="sc-label">${c.l}</div><div class="sc-value">${c.v}</div>${c.tr}</div><div class="sc-icon" style="background:${c.ic.bg}">${c.ic.svg}</div></div><div class="sc-spark">${c.sp}</div></div>`).join('');
-      const avgHighPct=tf?summaryRows.reduce((s,r)=>s+r.highDensity,0)/tf:0;const avgLowPct=tf?summaryRows.reduce((s,r)=>s+r.lowDensity,0)/tf:0;const avgInactivePct=tf?summaryRows.reduce((s,r)=>s+r.inactiveDensity,0)/tf:0;
-      if(isWeekly){
-        html+=`<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${fmt(hc)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${fmt(ic)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${fmt(lc)}</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
+  let authInitInProgress = false;
+
+  async function handleGoogleLogin(response){
+    try{
+      const credential = response && response.credential;
+      if(!credential) throw new Error('Google sign-in did not return a credential.');
+
+      setAuthMessage('Verifying account...', false);
+
+      const verifyResult = await verifyOgowGoogleAccess(credential);
+      const rows = await loadProtectedDashboardData(credential);
+
+      window.ogowCredential = credential;
+      window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
+
+      hideOgowAuthOverlay();
+      updateTimestamp();
+
+      if(typeof window.initializeDashboardWithRows === 'function'){
+        window.initializeDashboardWithRows(window.ogowAuthorizedRows);
       }else{
-        html+=`<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${avgHighPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${avgInactivePct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${avgLowPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
+        throw new Error('Dashboard bootstrap function initializeDashboardWithRows() is missing.');
       }
-      DOM.kpiGrid.innerHTML=html;
-      setTimeout(()=>{const el=document.getElementById('facDonutChart');if(!el)return;if(STATE.charts.donut)STATE.charts.donut.dispose();STATE.charts.donut=echarts.init(el);
-        const donutData=isWeekly?[{value:hc,name:'High',itemStyle:{color:'#4ac87e'}},{value:lc,name:'Low',itemStyle:{color:'#eac04f'}},{value:ic,name:'Inactive',itemStyle:{color:'#e0665f'}}]:[{value:Number(avgHighPct.toFixed(1)),name:'High '+avgHighPct.toFixed(0)+'%',itemStyle:{color:'#4ac87e'}},{value:Number(avgLowPct.toFixed(1)),name:'Low '+avgLowPct.toFixed(0)+'%',itemStyle:{color:'#eac04f'}},{value:Number(avgInactivePct.toFixed(1)),name:'Inactive '+avgInactivePct.toFixed(0)+'%',itemStyle:{color:'#e0665f'}}];
-        const donutTooltip=isWeekly?{trigger:'item',backgroundColor:'rgba(10,26,21,.95)',borderColor:'rgba(110,232,219,.18)',textStyle:{color:'#eaf7f2',fontSize:12,fontWeight:600},formatter:function(p){return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name}</strong><br/><span style="font-size:20px;font-weight:900">${p.value} facilities</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of total</span></div>`}}:{trigger:'item',backgroundColor:'rgba(10,26,21,.95)',borderColor:'rgba(110,232,219,.18)',textStyle:{color:'#eaf7f2',fontSize:12,fontWeight:600},formatter:function(p){return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name.split(' ')[0]}</strong><br/><span style="font-size:20px;font-weight:900">${p.value.toFixed(1)}%</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of distribution</span></div>`}};
-        STATE.charts.donut.setOption({tooltip:donutTooltip,series:[{type:'pie',radius:['58%','82%'],center:['50%','50%'],label:{show:true,position:'center',formatter:()=>`{big|${tf}}\n{sub|facilities}`,rich:{big:{fontSize:22,fontWeight:900,color:'#eaf7f2',lineHeight:28},sub:{fontSize:10,color:'#a0c2b6',lineHeight:16}}},itemStyle:{borderRadius:6,borderColor:'#0c221c',borderWidth:2},data:donutData,emphasis:{itemStyle:{shadowBlur:16,shadowColor:'rgba(0,0,0,.3)'}}}]})},50);
+
+      const email = verifyResult && typeof verifyResult === 'object' ? (verifyResult.email || '') : '';
+      if(email) console.info('OGOW access approved for:', email);
+    }catch(err){
+      console.error('OGOW auth/login error:', err);
+      showOgowAuthOverlay();
+      updateTimestamp();
+      setAuthMessage(err && err.message ? err.message : OGOW_AUTH_ERROR, true);
     }
+  }
 
-    function renderPerformanceTrend(series){if(!STATE.charts.performance)STATE.charts.performance=echarts.init(DOM.performanceTrendChart);STATE.charts.performance.setOption({backgroundColor:'transparent',tooltip:{trigger:'axis'},legend:{top:0,textStyle:{color:'#eaf7f2',fontSize:11}},grid:{left:16,right:14,top:38,bottom:16,containLabel:true},xAxis:{type:'category',data:series.map(r=>periodShort(r.label)||r.label),axisLine:{lineStyle:{color:'rgba(255,255,255,.12)'}},axisLabel:{color:'#a0c2b6',fontSize:10,rotate:35,interval:0}},yAxis:{type:'value',axisLine:{show:false},splitLine:{lineStyle:{color:'rgba(255,255,255,.06)'}},axisLabel:{color:'#a0c2b6',fontSize:11}},series:[{name:'High',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.High},itemStyle:{color:COLORS.High},areaStyle:{color:'rgba(74,200,126,.10)'},data:series.map(r=>r.high)},{name:'Low',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.Low},itemStyle:{color:COLORS.Low},areaStyle:{color:'rgba(234,192,79,.07)'},data:series.map(r=>r.low)},{name:'Inactive',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.Inactive},itemStyle:{color:COLORS.Inactive},areaStyle:{color:'rgba(224,102,95,.07)'},data:series.map(r=>r.inactive)}]})}
+  async function initializeOgowAuth(){
+    if(authInitInProgress) return;
+    authInitInProgress = true;
 
-    function renderDefaulters(summaryRows,fromP,toP){const weak=summaryRows.filter(r=>r.worstStatus!=='High').slice(0,8);STATE.currentDefaulterRows=weak.map(r=>({region:r.region,district:r.district,facility:r.facility,project:r.project,inactiveWeeks:r.inactiveWeeks,lowWeeks:r.lowWeeks,avgDays:r.avgDays,severityScore:r.severityScore,worstStatus:r.worstStatus,recentStatus:r.recentStatus,fromPeriod:fromP,toPeriod:toP}));if(!weak.length){DOM.topDefaultersList.innerHTML='<div class="empty-state">No defaulters in the selected period.</div>';return}const mx=Math.max(...weak.map(r=>r.severityScore),1);DOM.topDefaultersList.innerHTML=weak.map((r,i)=>`<div class="rank-row"><div class="rank-pos">${i+1}</div><div><div class="rank-name">${r.facility}</div><div style="margin-top:3px;color:var(--dim);font-size:11px">${r.region} &middot; ${r.district} &middot; ${r.project}</div></div><div style="font-size:11px;color:var(--dim);line-height:1.5"><div>Inactive: <strong style="color:var(--red)">${r.inactiveWeeks}</strong></div><div>Low: <strong style="color:var(--gold)">${r.lowWeeks}</strong></div></div><div><div class="heatbar"><span style="width:${(r.severityScore/mx)*100}%"></span></div><div style="margin-top:6px;color:var(--dim);font-size:11px">Score ${dec(r.severityScore)}</div></div><div style="font-size:11px;line-height:1.6"><div style="color:${statusTone(r.worstStatus)};font-weight:800">W: ${r.worstStatus}</div><div style="color:${statusTone(r.recentStatus)};font-weight:800">R: ${r.recentStatus}</div></div></div>`).join('')}
+    try{
+      showOgowAuthOverlay();
+      updateTimestamp();
+      setRetryBusy(true);
 
-    function renderWeeklyView(filteredRows){
-      const weekId=DOM.weeklyPeriod.value;const weekRows=filteredRows.filter(r=>r.periodId===weekId).sort((a,b)=>statusRank(b.status)-statusRank(a.status)||a.facility.localeCompare(b.facility));
-      const pMeta=STATE.periods.find(p=>p.id===weekId);DOM.weeklyViewTitle.textContent=`Weekly Snapshot \u2014 ${pMeta?.short||weekId}`;
-      if(!weekRows.length){DOM.weeklyGrid.innerHTML='<div class="empty-state">No facilities match the selected week and filters.</div>';return}
-      DOM.weeklyGrid.innerHTML=weekRows.map(r=>{const t=statusTone(r.status);const cls=r.status==='High'?'status-high':r.status==='Low'?'status-low':'status-inactive';return`<div class="wk-fac ${cls}"><div style="display:flex;justify-content:space-between;align-items:center"><div class="wk-fac-name">${r.facility}</div><span class="wk-status" style="background:${t}1e;border:1px solid ${t}44;color:${t}">\u25cf ${r.status}</span></div><div style="font-size:11px;color:var(--dim);margin:4px 0">${r.region} &middot; ${r.district} &middot; ${r.project}</div><div class="wk-fac-meta"><span>\ud83d\udc76 ${r.children} children</span><span>\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 ${r.caregivers} caregivers</span><span>\ud83d\udcca ${r.cases} cases</span><span>\u23f1 ${r.avgDaysActive.toFixed(1)} avg days</span></div></div>`}).join('');
-    }
-
-
-
-    function lookupFacilityStatus(facility,project,periodId){
-      const row=STATE.raw.find(r=>r.facility===facility&&r.project===project&&r.periodId===periodId);
-      return row?row.status:'\u2014';
-    }
-    function renderTables(summaryRows,fromP,toP){ensureGrids();const dr=summaryRows.map(r=>({region:r.region,district:r.district,facility:r.facility,project:r.project,highDensity:r.highDensity,lowDensity:r.lowDensity,inactiveDensity:r.inactiveDensity,worstStatus:r.worstStatus,recentStatus:r.recentStatus}));
-      let lbl2,lbl1,lbl0;
-      const isWeekly=STATE.currentView==='weekly';
-      let wkMinus2Id='',wkMinus1Id='',wkCurrentId='';
-      if(isWeekly){
-        const wId=DOM.weeklyPeriod.value;
-        const wIdx=STATE.periods.findIndex(p=>p.id===wId);
-        wkCurrentId=wId;
-        wkMinus1Id=wIdx>=1?STATE.periods[wIdx-1].id:'';
-        wkMinus2Id=wIdx>=2?STATE.periods[wIdx-2].id:'';
-        lbl2=wkMinus2Id?periodShort(wkMinus2Id):'-2 Wks';lbl1=wkMinus1Id?periodShort(wkMinus1Id):'-1 Wk';lbl0=periodShort(wkCurrentId)||'Current';
-      }else{
-        const wk2Ids=new Set(summaryRows.map(r=>r.statusMinus2Id).filter(Boolean));
-        const wk1Ids=new Set(summaryRows.map(r=>r.statusMinus1Id).filter(Boolean));
-        const wk0Ids=new Set(summaryRows.map(r=>r.statusCurrentId).filter(Boolean));
-        lbl2=periodShort([...wk2Ids][0])||'-2 Wks';lbl1=periodShort([...wk1Ids][0])||'-1 Wk';lbl0=periodShort([...wk0Ids][0])||'Current';
+      if(!hasRealClientId(window.OGOW_GOOGLE_CLIENT_ID)){
+        throw new Error('Google Client ID is not configured. Replace REPLACE_THIS_WITH_YOUR_REAL_GOOGLE_CLIENT_ID in index.html with the real OAuth Web Client ID.');
       }
-      const fr=summaryRows.filter(r=>{if(isWeekly)return['Inactive','Low'].includes(r.worstStatus);const s2=r.statusMinus2,s1=r.statusMinus1,s0=r.statusCurrent;return['Inactive','Low'].includes(s2)||['Inactive','Low'].includes(s1)||['Inactive','Low'].includes(s0)}).map(r=>{
+
+      setAuthMessage('Loading Google sign-in...', false);
+      await ensureGoogleScript();
+
+      if(!(window.google && window.google.accounts && window.google.accounts.id)){
+        throw new Error('Google sign-in library loaded incompletely.');
+      }
+
+      const mount = byId('googleSignInButton');
+      if(!mount) throw new Error('Google sign-in button container was not found.');
+
+      mount.innerHTML = '';
+
+      window.google.accounts.id.initialize({
+        client_id: window.OGOW_GOOGLE_CLIENT_ID,
+        callback: handleGoogleLogin,
+        auto_select: false,
+        cancel_on_tap_outside: false,
+        ux_mode: 'popup'
+      });
+
+      window.google.accounts.id.renderButton(mount, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: 280,
+        logo_alignment: 'left'
+      });
+
+      setAuthMessage('Use your @ogowhealth.com Google account.', false);
+    }catch(err){
+      console.error('OGOW auth init error:', err);
+      showOgowAuthOverlay();
+      setAuthMessage(err && err.message ? err.message : 'Failed to initialize Google sign-in.', true);
+    }finally{
+      setRetryBusy(false);
+      authInitInProgress = false;
+    }
+  }
+
+  window.initializeOgowAuth = initializeOgowAuth;
+  window.retryGoogleSignIn = initializeOgowAuth;
+
+  const DOM = {
+    loading: byId('loadingOverlay'),
+    toast: byId('toast'),
+    jsonUpload: byId('jsonUpload'),
+    btnReload: byId('btnReload'),
+    btnResetAll: byId('btnResetAll'),
+    btnResetFilters: byId('btnResetFilters'),
+    presetGroup: byId('presetGroup'),
+    weeklyPeriod: byId('weeklyPeriod'),
+    fromPeriod: byId('fromPeriod'),
+    toPeriod: byId('toPeriod'),
+    regionFilter: byId('regionFilter'),
+    districtFilter: byId('districtFilter'),
+    facilityFilter: byId('facilityFilter'),
+    projectButtons: byId('projectButtons'),
+    rangePill: byId('rangePill'),
+    scopeSummaryHero: byId('scopeSummaryHero'),
+    filterSummary: byId('filterSummary'),
+    kpiGrid: byId('kpiGrid'),
+    performanceTrendChart: byId('performanceTrendChart'),
+    topDefaultersList: byId('topDefaultersList'),
+    viewTrend: byId('viewTrend'),
+    viewWeekly: byId('viewWeekly'),
+    weeklyGrid: byId('weeklyGrid'),
+    weeklyViewTitle: byId('weeklyViewTitle'),
+    filterGrid: byId('filterGrid'),
+    timeBoxWrap: byId('timeBoxWrap'),
+    weeklyFieldWrap: byId('weeklyFieldWrap'),
+    weeklyTrendChart: null
+  };
+
+  const COLORS = { High:'#4ac87e', Low:'#eac04f', Inactive:'#e0665f' };
+  const showLoading = on => DOM.loading.classList.toggle('show', !!on);
+
+  function toast(msg){
+    DOM.toast.textContent = msg;
+    DOM.toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => DOM.toast.classList.remove('show'), 2400);
+  }
+
+  function csvEscape(v){
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }
+
+  function exportCsv(name,rows){
+    if(!rows?.length){ toast('No rows'); return; }
+    const h = Object.keys(rows[0]);
+    const lines = [h.join(',')].concat(rows.map(r => h.map(k => csvEscape(r[k])).join(',')));
+    const b = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(u);
+  }
+
+  function exportXlsx(name,rows){
+    if(!rows?.length){ toast('No rows'); return; }
+    const headers = Object.keys(rows[0]);
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>td,th{border:1px solid #ccc;padding:6px 10px;font-family:Calibri,Arial,sans-serif;font-size:11pt}th{background:#0d3b30;color:#fff;font-weight:bold;text-align:center}.inactive{background:#f4cccc;color:#cc0000;font-weight:bold;text-align:center}.low{background:#fff2cc;color:#bf8f00;font-weight:bold;text-align:center}.high{background:#d9ead3;color:#38761d;font-weight:bold;text-align:center}.row-inactive td:not(.inactive):not(.low):not(.high){background:#fce8e6}.row-low td:not(.inactive):not(.low):not(.high){background:#fef9e7}</style></head><body><table>';
+    html += '<tr>' + headers.map(h => '<th>'+h+'</th>').join('') + '</tr>';
+    rows.forEach(r => {
+      const ws = r.worstStatus || r.statusCurrent || '';
+      const rowCls = ws === 'Inactive' ? 'row-inactive' : ws === 'Low' ? 'row-low' : '';
+      html += '<tr class="'+rowCls+'">';
+      headers.forEach(h => {
+        const val = String(r[h] ?? '');
+        const isSt = h.toLowerCase().includes('status') || h.toLowerCase().includes('worst') || h.toLowerCase().includes('recent');
+        let cls = '';
+        if(isSt){
+          if(val === 'Inactive') cls = 'inactive';
+          else if(val === 'Low') cls = 'low';
+          else if(val === 'High') cls = 'high';
+        }
+        html += '<td class="'+cls+'">'+val+'</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</table></body></html>';
+    const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name.replace('.xlsx','.xls');
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Excel exported with colors');
+  }
+
+  function exportChart(chart,name){
+    if(!chart) return;
+    const u = chart.getDataURL({ pixelRatio:2, backgroundColor:'#071914' });
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = name;
+    a.click();
+  }
+
+  function fillSelect(sel,items,selected,includeAll=true,allLabel='All'){
+    const o = [];
+    if(includeAll) o.push(`<option value="ALL">${allLabel}</option>`);
+    items.forEach(i => o.push(`<option value="${i}">${i}</option>`));
+    sel.innerHTML = o.join('');
+    if(selected && Array.from(sel.options).some(opt => opt.value === selected)) sel.value = selected;
+  }
+
+  function normalizeRow(row){
+    return {
+      periodId: String(row.periodId || row.period || row.week || '').trim(),
+      periodLabel: String(row.periodLabel || row.period_label || '').trim(),
+      weekStart: String(row.weekStart || row.week_start || row.start || '').trim(),
+      weekEnd: String(row.weekEnd || row.week_end || row.end || '').trim(),
+      region: String(row.region || '').trim() || 'Unknown',
+      district: String(row.district || '').trim() || 'Unknown',
+      facility: String(row.facility || row.healthFacility || row.health_facility || '').trim() || 'Unknown',
+      project: String(row.project || row.projectName || row.project_name || '').trim() || 'Unassigned',
+      children: safeNum(row.children),
+      caregivers: safeNum(row.caregivers),
+      cases: safeNum(row.cases),
+      avgDaysActive: safeNum(row.avgDaysActive ?? row.avg_days_active),
+      benchmarkTarget: safeNum(row.benchmarkTarget ?? row.benchmark_target ?? 0),
+      status: ['High','Low','Inactive'].includes(row.status) ? row.status : 'Low'
+    };
+  }
+
+  function fmtDateShort(d){
+    if(!d) return '';
+    const parts = d.split('-');
+    if(parts.length !== 3) return d;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[parseInt(parts[1],10)-1] + ' ' + parseInt(parts[2],10);
+  }
+
+  function buildPeriodMeta(rows){
+    const map = new Map();
+    rows.forEach(r => {
+      if(!map.has(r.periodId)){
+        map.set(r.periodId,{ id:r.periodId, label:r.periodLabel || r.periodId, start:r.weekStart || '', end:r.weekEnd || '' });
+      }
+    });
+    return Array.from(map.values())
+      .sort((a,b) => a.id.localeCompare(b.id,undefined,{numeric:true}))
+      .map((p,i) => {
+        const short = `${p.id} (${fmtDateShort(p.start)} to ${fmtDateShort(p.end)})`;
+        return { ...p, idx:i, nice:short, short:short };
+      });
+  }
+
+  function periodShort(pid){
+    if(!pid) return '';
+    const p = STATE.periods.find(x => x.id === pid);
+    return p ? p.short : pid;
+  }
+
+  function setProjectButtons(projects){
+    const cur = STATE.project || 'ALL';
+    const btns = [{label:'All Projects', value:'ALL'}].concat(projects.map(p => ({label:p, value:p})));
+    DOM.projectButtons.innerHTML = btns.map(b => `<button class="project-btn ${b.value===cur?'active':''}" data-project="${b.value}">${b.label}</button>`).join('');
+    DOM.projectButtons.querySelectorAll('.project-btn').forEach(b => {
+      b.addEventListener('click',() => {
+        STATE.project = b.dataset.project;
+        setProjectButtons(projects);
+        renderDashboard();
+      });
+    });
+  }
+
+  function populateControls(){
+    const p = STATE.periods, labels = p.map(x => x.nice), ids = p.map(x => x.id);
+    DOM.weeklyPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
+    DOM.fromPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
+    DOM.toPeriod.innerHTML = ids.map((id,i) => `<option value="${id}">${labels[i]}</option>`).join('');
+    const last = p[p.length-1]?.id;
+    DOM.weeklyPeriod.value = last;
+    DOM.fromPeriod.value = p[Math.max(0,p.length-4)]?.id || last;
+    DOM.toPeriod.value = last;
+    updateFilterOptions();
+    setProjectButtons([...new Set(STATE.raw.map(r => r.project))].sort());
+  }
+
+  function currentPeriodRange(){
+    if(STATE.currentView === 'weekly'){
+      const wId = DOM.weeklyPeriod.value;
+      return wId ? [wId] : [];
+    }
+    const fId = DOM.fromPeriod.value, tId = DOM.toPeriod.value;
+    const fIdx = STATE.periods.find(p => p.id === fId)?.idx ?? 0;
+    const tIdx = STATE.periods.find(p => p.id === tId)?.idx ?? STATE.periods.length-1;
+    const s = Math.min(fIdx,tIdx), e = Math.max(fIdx,tIdx);
+    return STATE.periods.slice(s,e+1).map(p => p.id);
+  }
+
+  function getFilteredRows(){
+    const ids = new Set(currentPeriodRange());
+    const reg = DOM.regionFilter.value || 'ALL';
+    const dis = DOM.districtFilter.value || 'ALL';
+    const fac = DOM.facilityFilter.value || 'ALL';
+    const prj = STATE.project || 'ALL';
+    return STATE.raw.filter(r =>
+      ids.has(r.periodId) &&
+      (reg === 'ALL' || r.region === reg) &&
+      (dis === 'ALL' || r.district === dis) &&
+      (fac === 'ALL' || r.facility === fac) &&
+      (prj === 'ALL' || r.project === prj)
+    );
+  }
+
+  function updateFilterOptions(){
+    const ids = new Set(currentPeriodRange());
+    const inRange = STATE.raw.filter(r => ids.has(r.periodId) && ((STATE.project || 'ALL') === 'ALL' || r.project === STATE.project));
+    const cR = DOM.regionFilter.value || 'ALL';
+    fillSelect(DOM.regionFilter,[...new Set(inRange.map(r => r.region))].sort(),cR);
+    const afterR = inRange.filter(r => cR === 'ALL' || r.region === cR);
+    const cD = DOM.districtFilter.value || 'ALL';
+    fillSelect(DOM.districtFilter,[...new Set(afterR.map(r => r.district))].sort(),cD);
+    const afterD = afterR.filter(r => cD === 'ALL' || r.district === cD);
+    const cF = DOM.facilityFilter.value || 'ALL';
+    fillSelect(DOM.facilityFilter,[...new Set(afterD.map(r => r.facility))].sort(),cF,true,'All Facilities');
+  }
+
+  function summarizeFacilities(rows){
+    const g = new Map();
+    rows.forEach(r => {
+      const k = [r.region,r.district,r.facility,r.project].join('||');
+      if(!g.has(k)) g.set(k,{region:r.region,district:r.district,facility:r.facility,project:r.project,rows:[]});
+      g.get(k).rows.push(r);
+    });
+    return Array.from(g.values()).map(item => {
+      const tw = item.rows.length || 1;
+      const iw = item.rows.filter(r => r.status === 'Inactive').length;
+      const lw = item.rows.filter(r => r.status === 'Low').length;
+      const hw = item.rows.filter(r => r.status === 'High').length;
+      const ws = item.rows.reduce((a,r) => statusRank(r.status) > statusRank(a) ? r.status : a, 'High');
+      const lr = item.rows.slice().sort((a,b) => a.periodId.localeCompare(b.periodId,undefined,{numeric:true})).slice(-1)[0];
+      const ac = item.rows.reduce((s,r) => s+r.children,0)/tw;
+      const ag = item.rows.reduce((s,r) => s+r.caregivers,0)/tw;
+      const ax = item.rows.reduce((s,r) => s+r.cases,0)/tw;
+      const ad = item.rows.reduce((s,r) => s+r.avgDaysActive,0)/tw;
+      const ss = iw*6 + lw*3 + (lr?.status === 'Inactive' ? 4 : lr?.status === 'Low' ? 2 : 0) + Math.max(0,5-ad);
+      const sorted = item.rows.slice().sort((a,b) => a.periodId.localeCompare(b.periodId,undefined,{numeric:true}));
+      const l3 = sorted.slice(-3);
+      const st3 = l3.length >= 3 ? {s:l3[0].status,id:l3[0].periodId} : {s:'—',id:''};
+      const st2 = l3.length >= 2 ? {s:l3[l3.length-2].status,id:l3[l3.length-2].periodId} : {s:'—',id:''};
+      const st1 = l3.length >= 1 ? {s:l3[l3.length-1].status,id:l3[l3.length-1].periodId} : {s:'—',id:''};
+      return {
+        region:item.region,
+        district:item.district,
+        facility:item.facility,
+        project:item.project,
+        totalWeeks:tw,
+        inactiveWeeks:iw,
+        lowWeeks:lw,
+        highWeeks:hw,
+        avgChildren:Number(ac.toFixed(1)),
+        avgCaregivers:Number(ag.toFixed(1)),
+        avgCases:Number(ax.toFixed(1)),
+        avgDays:Number(ad.toFixed(2)),
+        worstStatus:ws,
+        recentStatus:lr?.status || 'High',
+        highDensity:Number((hw/tw*100).toFixed(0)),
+        lowDensity:Number((lw/tw*100).toFixed(0)),
+        inactiveDensity:Number((iw/tw*100).toFixed(0)),
+        severityScore:Number(ss.toFixed(1)),
+        statusMinus2:st3.s,
+        statusMinus2Id:st3.id,
+        statusMinus1:st2.s,
+        statusMinus1Id:st2.id,
+        statusCurrent:st1.s,
+        statusCurrentId:st1.id
+      };
+    }).sort((a,b) => b.severityScore-a.severityScore || a.facility.localeCompare(b.facility));
+  }
+
+  function buildWeeklySeries(rows){
+    return STATE.periods.filter(p => currentPeriodRange().includes(p.id)).map(p => {
+      const b = rows.filter(r => r.periodId === p.id);
+      return {
+        periodId:p.id,
+        label:p.id,
+        children:b.reduce((s,r) => s+r.children,0),
+        caregivers:b.reduce((s,r) => s+r.caregivers,0),
+        cases:b.reduce((s,r) => s+r.cases,0),
+        avgDays:b.length ? b.reduce((s,r) => s+r.avgDaysActive,0)/b.length : 0,
+        high:b.filter(r => r.status === 'High').length,
+        low:b.filter(r => r.status === 'Low').length,
+        inactive:b.filter(r => r.status === 'Inactive').length
+      };
+    });
+  }
+
+  function statusBadge(params){
+    const v = params.value || '', t = statusTone(v);
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:${t}1e;border:1px solid ${t}44;color:${t};font-weight:800;font-size:11px">&#9679; ${v}</span>`;
+  }
+
+  function densityBarRenderer(color){
+    return params => {
+      const val = safeNum(params.value);
+      return `<div style="display:flex;align-items:center;gap:8px;min-width:130px"><div style="flex:1;height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${val}%;height:100%;background:linear-gradient(90deg,${color}66,${color});border-radius:999px"></div></div><span style="font-weight:800;color:${color};font-size:12px">${val}%</span></div>`;
+    };
+  }
+
+  function statusRowStyle(params){
+    const ws = params.data?.worstStatus || '';
+    if(ws === 'Inactive') return {background:'rgba(224,102,95,.10)',borderLeft:'3px solid #e0665f'};
+    if(ws === 'Low') return {background:'rgba(234,192,79,.08)',borderLeft:'3px solid #eac04f'};
+    return null;
+  }
+
+  function ensureGrids(){
+    if(!STATE.grids.density){
+      STATE.grids.density = agGrid.createGrid(byId('densityGrid'), {
+        columnDefs:[
+          {field:'region',headerName:'Region',minWidth:110},
+          {field:'district',headerName:'District',minWidth:110},
+          {field:'facility',headerName:'Facility',minWidth:170,flex:1.2},
+          {field:'project',headerName:'Project',minWidth:130},
+          {field:'highDensity',headerName:'High %',minWidth:140,cellRenderer:densityBarRenderer(COLORS.High),comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'lowDensity',headerName:'Low %',minWidth:140,cellRenderer:densityBarRenderer(COLORS.Low),comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'inactiveDensity',headerName:'Inactive %',minWidth:150,cellRenderer:densityBarRenderer(COLORS.Inactive),comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'worstStatus',headerName:'Worst',minWidth:120,cellRenderer:statusBadge},
+          {field:'recentStatus',headerName:'Recent',minWidth:120,cellRenderer:statusBadge}
+        ],
+        defaultColDef:{sortable:true,filter:true,resizable:true,unSortIcon:true},
+        rowData:[],
+        animateRows:true,
+        suppressCellFocus:true,
+        getRowStyle:statusRowStyle
+      });
+    }
+
+    if(!STATE.grids.followup){
+      STATE.grids.followup = agGrid.createGrid(byId('followupGrid'), {
+        columnDefs:[
+          {field:'region',headerName:'Region',minWidth:110},
+          {field:'district',headerName:'District',minWidth:110},
+          {field:'facility',headerName:'Facility',minWidth:170,flex:1.1},
+          {field:'project',headerName:'Project',minWidth:130},
+          {field:'worstStatus',headerName:'Worst Status',minWidth:120,cellRenderer:statusBadge},
+          {field:'statusMinus2',headerName:'Status (last 2 wks)',minWidth:150,cellRenderer:statusBadge},
+          {field:'statusMinus1',headerName:'Status (last wk)',minWidth:140,cellRenderer:statusBadge},
+          {field:'statusCurrent',headerName:'Status (current wk)',minWidth:150,cellRenderer:statusBadge},
+          {field:'inactiveWeeks',headerName:'Inactive Wks',minWidth:110,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'lowWeeks',headerName:'Low Wks',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'children',headerName:'Children',minWidth:95,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'caregivers',headerName:'Caregivers',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'avgDays',headerName:'Avg Days',minWidth:90,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+          {field:'fromPeriod',headerName:'From Period',minWidth:200},
+          {field:'toPeriod',headerName:'To Period',minWidth:200}
+        ],
+        defaultColDef:{sortable:true,filter:true,resizable:true,unSortIcon:true},
+        rowData:[],
+        animateRows:true,
+        suppressCellFocus:true,
+        getRowStyle:statusRowStyle
+      });
+    }
+  }
+
+  function sparkSvg(series,color,height=32){
+    if(!series.length) return '';
+    const max = Math.max(...series,1), w = 120, h = height;
+    const pts = series.map((v,i) => `${(i/(series.length-1||1))*w},${h-((v/max)*h*.85+h*.05)}`).join(' ');
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block"><defs><linearGradient id="g_${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".18"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><polyline fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/><polygon fill="url(#g_${color.replace('#','')})" points="0,${h} ${pts} ${w},${h}"/></svg>`;
+  }
+
+  function trendBadge(series){
+    if(series.length < 2) return '<span class="sc-change neutral">—</span>';
+    const prev = series[series.length-2] || 0, cur = series[series.length-1] || 0;
+    if(!prev && !cur) return '<span class="sc-change neutral">0%</span>';
+    const pct = prev === 0 ? 100 : ((cur-prev)/prev*100);
+    const cls = pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral';
+    const arrow = pct > 0 ? '&#9650;' : pct < 0 ? '&#9660;' : '&#9679;';
+    return `<span class="sc-change ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
+  }
+
+  function buildFullHistoricalSeries(){
+    return STATE.periods.map(p => {
+      const b = STATE.raw.filter(r => r.periodId === p.id);
+      return {
+        label:p.id,
+        children:b.reduce((s,r) => s+r.children,0),
+        caregivers:b.reduce((s,r) => s+r.caregivers,0),
+        cases:b.reduce((s,r) => s+r.cases,0),
+        avgDays:b.length ? b.reduce((s,r) => s+r.avgDaysActive,0)/b.length : 0
+      };
+    });
+  }
+
+  function renderKpis(summaryRows,weeklySeries){
+    const tc = weeklySeries.reduce((s,r) => s+r.children,0),
+          tg = weeklySeries.reduce((s,r) => s+r.caregivers,0),
+          ad = weeklySeries.length ? weeklySeries.reduce((s,r) => s+r.avgDays,0)/weeklySeries.length : 0,
+          ts = weeklySeries.reduce((s,r) => s+r.cases,0);
+    const tf = summaryRows.length,
+          hc = summaryRows.filter(r => r.worstStatus === 'High').length,
+          ic = summaryRows.filter(r => r.worstStatus === 'Inactive').length,
+          lc = summaryRows.filter(r => r.worstStatus === 'Low').length,
+          fu = ic + lc;
+    const hist = buildFullHistoricalSeries();
+    const cs = hist.map(r => r.children), gs = hist.map(r => r.caregivers), ds = hist.map(r => r.avgDays), ss = hist.map(r => r.cases);
+    const isWeekly = STATE.currentView === 'weekly';
+    const weekLabel = isWeekly ? (' — ' + periodShort(DOM.weeklyPeriod.value)) : '';
+    const icons = [
+      {bg:'rgba(46,196,182,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#6ee8db" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>'},
+      {bg:'rgba(138,217,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#8ad9ff" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>'},
+      {bg:'rgba(234,192,79,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#eac04f" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'},
+      {bg:'rgba(196,157,255,.12)',svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#c49dff" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'}
+    ];
+    const cards = [
+      {l:'Children Onboarded'+weekLabel,v:fmt(tc),sp:sparkSvg(cs,'#6ee8db'),tr:trendBadge(cs),ic:icons[0]},
+      {l:'Caregiver Onboarded'+weekLabel,v:fmt(tg),sp:sparkSvg(gs,'#8ad9ff'),tr:trendBadge(gs),ic:icons[1]},
+      {l:'Avg Active Days'+weekLabel,v:dec(ad),sp:sparkSvg(ds,'#eac04f'),tr:trendBadge(ds),ic:icons[2]},
+      {l:'Cases Administered'+weekLabel,v:fmt(ts),sp:sparkSvg(ss,'#c49dff'),tr:trendBadge(ss),ic:icons[3]}
+    ];
+    let html = cards.map(c => `<div class="sc"><div class="sc-top"><div><div class="sc-label">${c.l}</div><div class="sc-value">${c.v}</div>${c.tr}</div><div class="sc-icon" style="background:${c.ic.bg}">${c.ic.svg}</div></div><div class="sc-spark">${c.sp}</div></div>`).join('');
+    const avgHighPct = tf ? summaryRows.reduce((s,r)=>s+r.highDensity,0)/tf : 0;
+    const avgLowPct = tf ? summaryRows.reduce((s,r)=>s+r.lowDensity,0)/tf : 0;
+    const avgInactivePct = tf ? summaryRows.reduce((s,r)=>s+r.inactiveDensity,0)/tf : 0;
+
+    if(isWeekly){
+      html += `<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${fmt(hc)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${fmt(ic)}</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${fmt(lc)}</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
+    }else{
+      html += `<div class="fac-snap"><div class="fac-donut"><div class="fac-donut-chart" id="facDonutChart"></div></div><div class="fac-stats"><div class="fac-stat"><div class="fs-label" style="color:var(--green)">High Performing</div><div class="fs-val" style="color:var(--green)">${avgHighPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--red)">Inactive</div><div class="fs-val" style="color:var(--red)">${avgInactivePct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label" style="color:var(--gold)">Low-performing</div><div class="fs-val" style="color:var(--gold)">${avgLowPct.toFixed(0)}%</div></div><div class="fac-stat"><div class="fs-label">Follow-up Required</div><div class="fs-val">${fmt(fu)}<span style="font-size:11px;color:var(--dim);font-weight:600"> / ${fmt(tf)}</span></div></div></div></div>`;
+    }
+
+    DOM.kpiGrid.innerHTML = html;
+
+    setTimeout(() => {
+      const el = byId('facDonutChart');
+      if(!el) return;
+      if(STATE.charts.donut) STATE.charts.donut.dispose();
+      STATE.charts.donut = echarts.init(el);
+
+      const donutData = isWeekly
+        ? [
+            {value:hc,name:'High',itemStyle:{color:'#4ac87e'}},
+            {value:lc,name:'Low',itemStyle:{color:'#eac04f'}},
+            {value:ic,name:'Inactive',itemStyle:{color:'#e0665f'}}
+          ]
+        : [
+            {value:Number(avgHighPct.toFixed(1)),name:'High '+avgHighPct.toFixed(0)+'%',itemStyle:{color:'#4ac87e'}},
+            {value:Number(avgLowPct.toFixed(1)),name:'Low '+avgLowPct.toFixed(0)+'%',itemStyle:{color:'#eac04f'}},
+            {value:Number(avgInactivePct.toFixed(1)),name:'Inactive '+avgInactivePct.toFixed(0)+'%',itemStyle:{color:'#e0665f'}}
+          ];
+
+      const donutTooltip = isWeekly
+        ? {
+            trigger:'item',
+            backgroundColor:'rgba(10,26,21,.95)',
+            borderColor:'rgba(110,232,219,.18)',
+            textStyle:{color:'#eaf7f2',fontSize:12,fontWeight:600},
+            formatter:function(p){ return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name}</strong><br/><span style="font-size:20px;font-weight:900">${p.value} facilities</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of total</span></div>`; }
+          }
+        : {
+            trigger:'item',
+            backgroundColor:'rgba(10,26,21,.95)',
+            borderColor:'rgba(110,232,219,.18)',
+            textStyle:{color:'#eaf7f2',fontSize:12,fontWeight:600},
+            formatter:function(p){ return `<div style="padding:4px 2px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px"></span><strong>${p.name.split(' ')[0]}</strong><br/><span style="font-size:20px;font-weight:900">${p.value.toFixed(1)}%</span><br/><span style="color:#a0c2b6;font-size:11px">${p.percent.toFixed(1)}% of distribution</span></div>`; }
+          };
+
+      STATE.charts.donut.setOption({
+        tooltip: donutTooltip,
+        series:[{
+          type:'pie',
+          radius:['58%','82%'],
+          center:['50%','50%'],
+          label:{
+            show:true,
+            position:'center',
+            formatter:()=>`{big|${tf}}\n{sub|facilities}`,
+            rich:{
+              big:{fontSize:22,fontWeight:900,color:'#eaf7f2',lineHeight:28},
+              sub:{fontSize:10,color:'#a0c2b6',lineHeight:16}
+            }
+          },
+          itemStyle:{borderRadius:6,borderColor:'#0c221c',borderWidth:2},
+          data: donutData,
+          emphasis:{ itemStyle:{shadowBlur:16,shadowColor:'rgba(0,0,0,.3)'} }
+        }]
+      });
+    },50);
+  }
+
+  function renderPerformanceTrend(series){
+    if(!STATE.charts.performance) STATE.charts.performance = echarts.init(DOM.performanceTrendChart);
+    STATE.charts.performance.setOption({
+      backgroundColor:'transparent',
+      tooltip:{trigger:'axis'},
+      legend:{top:0,textStyle:{color:'#eaf7f2',fontSize:11}},
+      grid:{left:16,right:14,top:38,bottom:16,containLabel:true},
+      xAxis:{
+        type:'category',
+        data:series.map(r => periodShort(r.label) || r.label),
+        axisLine:{lineStyle:{color:'rgba(255,255,255,.12)'}},
+        axisLabel:{color:'#a0c2b6',fontSize:10,rotate:35,interval:0}
+      },
+      yAxis:{
+        type:'value',
+        axisLine:{show:false},
+        splitLine:{lineStyle:{color:'rgba(255,255,255,.06)'}},
+        axisLabel:{color:'#a0c2b6',fontSize:11}
+      },
+      series:[
+        {name:'High',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.High},itemStyle:{color:COLORS.High},areaStyle:{color:'rgba(74,200,126,.10)'},data:series.map(r=>r.high)},
+        {name:'Low',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.Low},itemStyle:{color:COLORS.Low},areaStyle:{color:'rgba(234,192,79,.07)'},data:series.map(r=>r.low)},
+        {name:'Inactive',type:'line',smooth:true,symbolSize:7,lineStyle:{width:2.5,color:COLORS.Inactive},itemStyle:{color:COLORS.Inactive},areaStyle:{color:'rgba(224,102,95,.07)'},data:series.map(r=>r.inactive)}
+      ]
+    });
+  }
+
+  function renderDefaulters(summaryRows,fromP,toP){
+    const weak = summaryRows.filter(r => r.worstStatus !== 'High').slice(0,8);
+    STATE.currentDefaulterRows = weak.map(r => ({
+      region:r.region,
+      district:r.district,
+      facility:r.facility,
+      project:r.project,
+      inactiveWeeks:r.inactiveWeeks,
+      lowWeeks:r.lowWeeks,
+      avgDays:r.avgDays,
+      severityScore:r.severityScore,
+      worstStatus:r.worstStatus,
+      recentStatus:r.recentStatus,
+      fromPeriod:fromP,
+      toPeriod:toP
+    }));
+
+    if(!weak.length){
+      DOM.topDefaultersList.innerHTML = '<div class="empty-state">No defaulters in the selected period.</div>';
+      return;
+    }
+
+    const mx = Math.max(...weak.map(r => r.severityScore),1);
+    DOM.topDefaultersList.innerHTML = weak.map((r,i) => `<div class="rank-row"><div class="rank-pos">${i+1}</div><div><div class="rank-name">${r.facility}</div><div style="margin-top:3px;color:var(--dim);font-size:11px">${r.region} &middot; ${r.district} &middot; ${r.project}</div></div><div style="font-size:11px;color:var(--dim);line-height:1.5"><div>Inactive: <strong style="color:var(--red)">${r.inactiveWeeks}</strong></div><div>Low: <strong style="color:var(--gold)">${r.lowWeeks}</strong></div></div><div><div class="heatbar"><span style="width:${(r.severityScore/mx)*100}%"></span></div><div style="margin-top:6px;color:var(--dim);font-size:11px">Score ${dec(r.severityScore)}</div></div><div style="font-size:11px;line-height:1.6"><div style="color:${statusTone(r.worstStatus)};font-weight:800">W: ${r.worstStatus}</div><div style="color:${statusTone(r.recentStatus)};font-weight:800">R: ${r.recentStatus}</div></div></div>`).join('');
+  }
+
+  function renderWeeklyView(filteredRows){
+    const weekId = DOM.weeklyPeriod.value;
+    const weekRows = filteredRows.filter(r => r.periodId === weekId).sort((a,b) => statusRank(b.status)-statusRank(a.status) || a.facility.localeCompare(b.facility));
+    const pMeta = STATE.periods.find(p => p.id === weekId);
+    DOM.weeklyViewTitle.textContent = `Weekly Snapshot — ${pMeta?.short || weekId}`;
+    if(!weekRows.length){
+      DOM.weeklyGrid.innerHTML = '<div class="empty-state">No facilities match the selected week and filters.</div>';
+      return;
+    }
+    DOM.weeklyGrid.innerHTML = weekRows.map(r => {
+      const t = statusTone(r.status);
+      const cls = r.status === 'High' ? 'status-high' : r.status === 'Low' ? 'status-low' : 'status-inactive';
+      return `<div class="wk-fac ${cls}"><div style="display:flex;justify-content:space-between;align-items:center"><div class="wk-fac-name">${r.facility}</div><span class="wk-status" style="background:${t}1e;border:1px solid ${t}44;color:${t}">&#9679; ${r.status}</span></div><div style="font-size:11px;color:var(--dim);margin:4px 0">${r.region} &middot; ${r.district} &middot; ${r.project}</div><div class="wk-fac-meta"><span>👶 ${r.children} children</span><span>👨‍👩‍👧 ${r.caregivers} caregivers</span><span>📊 ${r.cases} cases</span><span>⏱ ${r.avgDaysActive.toFixed(1)} avg days</span></div></div>`;
+    }).join('');
+  }
+
+  function lookupFacilityStatus(facility,project,periodId){
+    const row = STATE.raw.find(r => r.facility===facility && r.project===project && r.periodId===periodId);
+    return row ? row.status : '—';
+  }
+
+  function renderTables(summaryRows,fromP,toP){
+    ensureGrids();
+    const dr = summaryRows.map(r => ({
+      region:r.region,
+      district:r.district,
+      facility:r.facility,
+      project:r.project,
+      highDensity:r.highDensity,
+      lowDensity:r.lowDensity,
+      inactiveDensity:r.inactiveDensity,
+      worstStatus:r.worstStatus,
+      recentStatus:r.recentStatus
+    }));
+
+    let lbl2,lbl1,lbl0;
+    const isWeekly = STATE.currentView === 'weekly';
+    let wkMinus2Id='', wkMinus1Id='', wkCurrentId='';
+
+    if(isWeekly){
+      const wId = DOM.weeklyPeriod.value;
+      const wIdx = STATE.periods.findIndex(p => p.id === wId);
+      wkCurrentId = wId;
+      wkMinus1Id = wIdx >= 1 ? STATE.periods[wIdx-1].id : '';
+      wkMinus2Id = wIdx >= 2 ? STATE.periods[wIdx-2].id : '';
+      lbl2 = wkMinus2Id ? periodShort(wkMinus2Id) : '-2 Wks';
+      lbl1 = wkMinus1Id ? periodShort(wkMinus1Id) : '-1 Wk';
+      lbl0 = periodShort(wkCurrentId) || 'Current';
+    }else{
+      const wk2Ids = new Set(summaryRows.map(r => r.statusMinus2Id).filter(Boolean));
+      const wk1Ids = new Set(summaryRows.map(r => r.statusMinus1Id).filter(Boolean));
+      const wk0Ids = new Set(summaryRows.map(r => r.statusCurrentId).filter(Boolean));
+      lbl2 = periodShort([...wk2Ids][0]) || '-2 Wks';
+      lbl1 = periodShort([...wk1Ids][0]) || '-1 Wk';
+      lbl0 = periodShort([...wk0Ids][0]) || 'Current';
+    }
+
+    const fr = summaryRows
+      .filter(r => {
+        if(isWeekly) return ['Inactive','Low'].includes(r.worstStatus);
+        const s2 = r.statusMinus2, s1 = r.statusMinus1, s0 = r.statusCurrent;
+        return ['Inactive','Low'].includes(s2) || ['Inactive','Low'].includes(s1) || ['Inactive','Low'].includes(s0);
+      })
+      .map(r => {
         let s2,s1,s0;
         if(isWeekly){
-          s2=wkMinus2Id?lookupFacilityStatus(r.facility,r.project,wkMinus2Id):'\u2014';
-          s1=wkMinus1Id?lookupFacilityStatus(r.facility,r.project,wkMinus1Id):'\u2014';
-          s0=lookupFacilityStatus(r.facility,r.project,wkCurrentId);
+          s2 = wkMinus2Id ? lookupFacilityStatus(r.facility,r.project,wkMinus2Id) : '—';
+          s1 = wkMinus1Id ? lookupFacilityStatus(r.facility,r.project,wkMinus1Id) : '—';
+          s0 = lookupFacilityStatus(r.facility,r.project,wkCurrentId);
         }else{
-          s2=r.statusMinus2;s1=r.statusMinus1;s0=r.statusCurrent;
+          s2 = r.statusMinus2; s1 = r.statusMinus1; s0 = r.statusCurrent;
         }
-        return{region:r.region,district:r.district,facility:r.facility,project:r.project,worstStatus:r.worstStatus,statusMinus2:s2,statusMinus1:s1,statusCurrent:s0,inactiveWeeks:r.inactiveWeeks,lowWeeks:r.lowWeeks,children:Math.round(r.avgChildren),caregivers:Math.round(r.avgCaregivers),avgDays:Number(r.avgDays.toFixed(2)),fromPeriod:periodShort(fromP)||fromP,toPeriod:periodShort(toP)||toP};
+        return {
+          region:r.region,
+          district:r.district,
+          facility:r.facility,
+          project:r.project,
+          worstStatus:r.worstStatus,
+          statusMinus2:s2,
+          statusMinus1:s1,
+          statusCurrent:s0,
+          inactiveWeeks:r.inactiveWeeks,
+          lowWeeks:r.lowWeeks,
+          children:Math.round(r.avgChildren),
+          caregivers:Math.round(r.avgCaregivers),
+          avgDays:Number(r.avgDays.toFixed(2)),
+          fromPeriod:periodShort(fromP) || fromP,
+          toPeriod:periodShort(toP) || toP
+        };
       });
-      const fuCols=[{field:'region',headerName:'Region',minWidth:110},{field:'district',headerName:'District',minWidth:110},{field:'facility',headerName:'Facility',minWidth:170,flex:1.1},{field:'project',headerName:'Project',minWidth:130},{field:'worstStatus',headerName:'Worst Status',minWidth:120,cellRenderer:statusBadge},{field:'statusMinus2',headerName:lbl2+' - last 2 wks',minWidth:220,cellRenderer:statusBadge},{field:'statusMinus1',headerName:lbl1+' - last wk',minWidth:210,cellRenderer:statusBadge},{field:'statusCurrent',headerName:lbl0+' - current wk',minWidth:220,cellRenderer:statusBadge},{field:'inactiveWeeks',headerName:'Inactive Wks',minWidth:110,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'lowWeeks',headerName:'Low Wks',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'children',headerName:'Children',minWidth:95,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'caregivers',headerName:'Caregivers',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'avgDays',headerName:'Avg Days',minWidth:90,comparator:(a,b)=>safeNum(a)-safeNum(b)},{field:'fromPeriod',headerName:'From Period',minWidth:200},{field:'toPeriod',headerName:'To Period',minWidth:200}];
-      STATE.grids.followup.setGridOption('columnDefs',fuCols);STATE.currentDensityRows=dr;STATE.currentFollowupRows=fr;STATE.grids.density.setGridOption('rowData',dr);STATE.grids.followup.setGridOption('rowData',fr)}
 
-    function renderSummaryText(filteredRows,summaryRows){const proj=new Set(filteredRows.map(r=>r.project)).size,reg=new Set(filteredRows.map(r=>r.region)).size,dis=new Set(filteredRows.map(r=>r.district)).size,fac=summaryRows.length;const wks=new Set(filteredRows.map(r=>r.periodId)).size;const wkLabel=wks===1?'1 week':wks+' weeks';DOM.scopeSummaryHero.textContent=`Ogow Health \u00b7 ${fmt(proj)} Projects \u00b7 ${fmt(reg)} regions \u00b7 ${fmt(dis)} districts \u00b7 ${fmt(fac)} health facilities \u00b7 ${wkLabel}`;const rng=currentPeriodRange();DOM.rangePill.textContent=STATE.currentView==='weekly'?`Week: ${periodShort(DOM.weeklyPeriod.value)||'\u2014'}`:`Range: ${periodShort(rng[0])||'\u2014'} \u2192 ${periodShort(rng[rng.length-1])||'\u2014'}`;const bits=[];if(STATE.project!=='ALL')bits.push(STATE.project);if(DOM.regionFilter.value!=='ALL')bits.push(DOM.regionFilter.value);if(DOM.districtFilter.value!=='ALL')bits.push(DOM.districtFilter.value);if(DOM.facilityFilter.value!=='ALL')bits.push(DOM.facilityFilter.value);DOM.filterSummary.textContent=bits.length?bits.join(' \u00b7 '):'No filter applied'}
+    const fuCols = [
+      {field:'region',headerName:'Region',minWidth:110},
+      {field:'district',headerName:'District',minWidth:110},
+      {field:'facility',headerName:'Facility',minWidth:170,flex:1.1},
+      {field:'project',headerName:'Project',minWidth:130},
+      {field:'worstStatus',headerName:'Worst Status',minWidth:120,cellRenderer:statusBadge},
+      {field:'statusMinus2',headerName:lbl2+' - last 2 wks',minWidth:220,cellRenderer:statusBadge},
+      {field:'statusMinus1',headerName:lbl1+' - last wk',minWidth:210,cellRenderer:statusBadge},
+      {field:'statusCurrent',headerName:lbl0+' - current wk',minWidth:220,cellRenderer:statusBadge},
+      {field:'inactiveWeeks',headerName:'Inactive Wks',minWidth:110,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+      {field:'lowWeeks',headerName:'Low Wks',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+      {field:'children',headerName:'Children',minWidth:95,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+      {field:'caregivers',headerName:'Caregivers',minWidth:100,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+      {field:'avgDays',headerName:'Avg Days',minWidth:90,comparator:(a,b)=>safeNum(a)-safeNum(b)},
+      {field:'fromPeriod',headerName:'From Period',minWidth:200},
+      {field:'toPeriod',headerName:'To Period',minWidth:200}
+    ];
 
-    function renderDashboard(){
-      updateFilterOptions();const f=getFilteredRows();const s=summarizeFacilities(f);const w=buildWeeklySeries(f);
-      const fromP=currentPeriodRange()[0]||'\u2014',toP=currentPeriodRange().slice(-1)[0]||'\u2014';
-      renderSummaryText(f,s);renderKpis(s,w);
-      if(STATE.currentView==='trend'){renderPerformanceTrend(w);renderDefaulters(s,fromP,toP);renderTables(s,fromP,toP)}
-      else{renderWeeklyView(f);renderTables(s,fromP,toP)}
-    }
+    STATE.grids.followup.setGridOption('columnDefs',fuCols);
+    STATE.currentDensityRows = dr;
+    STATE.currentFollowupRows = fr;
+    STATE.grids.density.setGridOption('rowData',dr);
+    STATE.grids.followup.setGridOption('rowData',fr);
+  }
 
-    function applyViewLayout(){
-      const isTrend=STATE.currentView==='trend';
-      DOM.viewTrend.classList.toggle('hidden',!isTrend);
-      DOM.viewWeekly.classList.toggle('hidden',isTrend);
-      DOM.timeBoxWrap.style.display=isTrend?'':'none';
-      DOM.weeklyFieldWrap.style.display=isTrend?'none':'';
-      DOM.filterGrid.className=`filter-grid ${isTrend?'mode-trend':'mode-weekly'}`;
-      DOM.presetGroup.style.display=isTrend?'':'none';
-      document.querySelectorAll('#viewToggle .vt-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===STATE.currentView));
+  function renderSummaryText(filteredRows,summaryRows){
+    const proj = new Set(filteredRows.map(r => r.project)).size,
+          reg = new Set(filteredRows.map(r => r.region)).size,
+          dis = new Set(filteredRows.map(r => r.district)).size,
+          fac = summaryRows.length;
+    const wks = new Set(filteredRows.map(r => r.periodId)).size;
+    const wkLabel = wks === 1 ? '1 week' : wks + ' weeks';
+
+    DOM.scopeSummaryHero.textContent = `Ogow Health · ${fmt(proj)} Projects · ${fmt(reg)} regions · ${fmt(dis)} districts · ${fmt(fac)} health facilities · ${wkLabel}`;
+
+    const rng = currentPeriodRange();
+    DOM.rangePill.textContent = STATE.currentView === 'weekly'
+      ? `Week: ${periodShort(DOM.weeklyPeriod.value) || '—'}`
+      : `Range: ${periodShort(rng[0]) || '—'} → ${periodShort(rng[rng.length-1]) || '—'}`;
+
+    const bits = [];
+    if(STATE.project !== 'ALL') bits.push(STATE.project);
+    if(DOM.regionFilter.value !== 'ALL') bits.push(DOM.regionFilter.value);
+    if(DOM.districtFilter.value !== 'ALL') bits.push(DOM.districtFilter.value);
+    if(DOM.facilityFilter.value !== 'ALL') bits.push(DOM.facilityFilter.value);
+    DOM.filterSummary.textContent = bits.length ? bits.join(' · ') : 'No filter applied';
+  }
+
+  function renderDashboard(){
+    updateFilterOptions();
+    const f = getFilteredRows();
+    const s = summarizeFacilities(f);
+    const w = buildWeeklySeries(f);
+    const fromP = currentPeriodRange()[0] || '—';
+    const toP = currentPeriodRange().slice(-1)[0] || '—';
+    renderSummaryText(f,s);
+    renderKpis(s,w);
+    if(STATE.currentView === 'trend'){
+      renderPerformanceTrend(w);
+      renderDefaulters(s,fromP,toP);
+      renderTables(s,fromP,toP);
+    }else{
+      renderWeeklyView(f);
+      renderTables(s,fromP,toP);
     }
-    function toggleView(view){STATE.currentView=view;applyViewLayout();renderDashboard();if(view==='trend')setTimeout(()=>Object.values(STATE.charts).forEach(c=>c?.resize()),120)}
-    function setPreset(name){const p=STATE.periods,last=p.length-1;if(!p.length)return;if(name==='single'){DOM.fromPeriod.value=p[last].id;DOM.toPeriod.value=p[last].id}else if(name==='last4'){DOM.fromPeriod.value=p[Math.max(0,last-3)].id;DOM.toPeriod.value=p[last].id}else if(name==='last8'){DOM.fromPeriod.value=p[Math.max(0,last-7)].id;DOM.toPeriod.value=p[last].id}else{DOM.fromPeriod.value=p[0].id;DOM.toPeriod.value=p[last].id}DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c=>c.classList.toggle('active',c.dataset.preset===name));renderDashboard()}
-    function resetFilters(){STATE.project='ALL';DOM.regionFilter.value='ALL';DOM.districtFilter.value='ALL';DOM.facilityFilter.value='ALL';setProjectButtons([...new Set(STATE.raw.map(r=>r.project))].sort());renderDashboard()}
-    function loadRows(rows,sourceLabel){showLoading(true);requestAnimationFrame(()=>{try{STATE.raw=rows.map(normalizeRow).filter(r=>r.periodId&&r.facility);STATE.periods=buildPeriodMeta(STATE.raw);populateControls();const last=STATE.periods[STATE.periods.length-1]?.id;DOM.weeklyPeriod.value=last;applyViewLayout();setPreset(sourceLabel.toLowerCase().includes('full')||sourceLabel.toLowerCase().includes('operational')||sourceLabel.toLowerCase().includes('live')?'all':'last4')}catch(e){console.error(e);toast('Could not load data')}finally{showLoading(false)}})}
-    function bindEvents(){
-      document.getElementById('btnSyncLive').addEventListener('click',()=>{
-        if(!window.ogowCredential&&typeof window.showOgowAuthOverlay==='function')window.showOgowAuthOverlay();
-        syncProtectedData();
-      });
-      DOM.btnReload.addEventListener('click',()=>restoreAuthorizedRows());
-      DOM.btnResetAll.addEventListener('click',()=>{resetFilters();restoreAuthorizedRows(true)});
-      DOM.btnResetFilters.addEventListener('click',()=>resetFilters());
-      DOM.weeklyPeriod.addEventListener('change',()=>renderDashboard());
-      DOM.fromPeriod.addEventListener('change',()=>renderDashboard());
-      DOM.toPeriod.addEventListener('change',()=>renderDashboard());
-      DOM.regionFilter.addEventListener('change',()=>{updateFilterOptions();renderDashboard()});
-      DOM.districtFilter.addEventListener('change',()=>{updateFilterOptions();renderDashboard()});
-      DOM.facilityFilter.addEventListener('change',()=>renderDashboard());
-      DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c=>c.addEventListener('click',()=>setPreset(c.dataset.preset)));
-      document.querySelectorAll('#viewToggle .vt-btn').forEach(b=>b.addEventListener('click',()=>toggleView(b.dataset.view)));
-      DOM.jsonUpload.addEventListener('change',async ev=>{const file=ev.target.files?.[0];if(!file)return;try{const txt=await file.text();const json=JSON.parse(txt);const rows=Array.isArray(json)?json:Array.isArray(json.rows)?json.rows:[];if(!rows.length)throw new Error('No rows');window.ogowAuthorizedRows=rows;loadRows(rows,`uploaded (${file.name})`);toast('Dataset uploaded')}catch(e){console.error(e);toast('Invalid JSON')}});
-      document.getElementById('exportPerfChart').addEventListener('click',()=>exportChart(STATE.charts.performance,'weekly-performance-trend.png'));
-      document.getElementById('exportDensityCsv').addEventListener('click',()=>exportXlsx('density-map.xlsx',STATE.currentDensityRows));
-      document.getElementById('exportFollowupCsv').addEventListener('click',()=>exportXlsx('composite-followup.xlsx',STATE.currentFollowupRows));
-      document.getElementById('exportDefaultersCsv').addEventListener('click',()=>exportCsv('top-defaulters.csv',STATE.currentDefaulterRows));
-      window.addEventListener('resize',()=>Object.values(STATE.charts).forEach(c=>c?.resize()));
+  }
+
+  function applyViewLayout(){
+    const isTrend = STATE.currentView === 'trend';
+    DOM.viewTrend.classList.toggle('hidden',!isTrend);
+    DOM.viewWeekly.classList.toggle('hidden',isTrend);
+    DOM.timeBoxWrap.style.display = isTrend ? '' : 'none';
+    DOM.weeklyFieldWrap.style.display = isTrend ? 'none' : '';
+    DOM.filterGrid.className = `filter-grid ${isTrend ? 'mode-trend' : 'mode-weekly'}`;
+    DOM.presetGroup.style.display = isTrend ? '' : 'none';
+    document.querySelectorAll('#viewToggle .vt-btn').forEach(b => b.classList.toggle('active',b.dataset.view === STATE.currentView));
+  }
+
+  function toggleView(view){
+    STATE.currentView = view;
+    applyViewLayout();
+    renderDashboard();
+    if(view === 'trend') setTimeout(() => Object.values(STATE.charts).forEach(c => c?.resize()),120);
+  }
+
+  function setPreset(name){
+    const p = STATE.periods, last = p.length-1;
+    if(!p.length) return;
+    if(name === 'single'){
+      DOM.fromPeriod.value = p[last].id;
+      DOM.toPeriod.value = p[last].id;
+    }else if(name === 'last4'){
+      DOM.fromPeriod.value = p[Math.max(0,last-3)].id;
+      DOM.toPeriod.value = p[last].id;
+    }else if(name === 'last8'){
+      DOM.fromPeriod.value = p[Math.max(0,last-7)].id;
+      DOM.toPeriod.value = p[last].id;
+    }else{
+      DOM.fromPeriod.value = p[0].id;
+      DOM.toPeriod.value = p[last].id;
     }
-    function restoreAuthorizedRows(showNotice=false){
-      if(Array.isArray(window.ogowAuthorizedRows)&&window.ogowAuthorizedRows.length){
-        loadRows(window.ogowAuthorizedRows,'Authenticated protected dataset');
-        updateTimestamp();
-        if(showNotice)toast('Dashboard reset');
-      }else{
-        toast(window.OGOW_AUTH_ERROR||OGOW_AUTH_ERROR);
+    DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c => c.classList.toggle('active',c.dataset.preset === name));
+    renderDashboard();
+  }
+
+  function resetFilters(){
+    STATE.project = 'ALL';
+    DOM.regionFilter.value = 'ALL';
+    DOM.districtFilter.value = 'ALL';
+    DOM.facilityFilter.value = 'ALL';
+    setProjectButtons([...new Set(STATE.raw.map(r => r.project))].sort());
+    renderDashboard();
+  }
+
+  function loadRows(rows,sourceLabel){
+    showLoading(true);
+    requestAnimationFrame(() => {
+      try{
+        STATE.raw = rows.map(normalizeRow).filter(r => r.periodId && r.facility);
+        STATE.periods = buildPeriodMeta(STATE.raw);
+        populateControls();
+        const last = STATE.periods[STATE.periods.length-1]?.id;
+        DOM.weeklyPeriod.value = last;
+        applyViewLayout();
+        setPreset(
+          sourceLabel.toLowerCase().includes('full') ||
+          sourceLabel.toLowerCase().includes('operational') ||
+          sourceLabel.toLowerCase().includes('live')
+            ? 'all'
+            : 'last4'
+        );
+      }catch(e){
+        console.error(e);
+        toast('Could not load data');
+      }finally{
+        showLoading(false);
       }
-    }
-    window.initializeDashboardWithRows=function(rows){
-      window.ogowAuthorizedRows=Array.isArray(rows)?rows:[];
+    });
+  }
+
+  async function syncProtectedData(options={}){
+    const btn = byId('btnSyncLive');
+    const quiet = options.quiet === true;
+    try{
+      if(!window.ogowCredential || typeof window.loadProtectedDashboardData !== 'function'){
+        showOgowAuthOverlay();
+        throw new Error(window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
+      }
+      if(btn){
+        btn.innerHTML = '&#128339; Syncing...';
+        btn.style.opacity = '0.7';
+      }
+      const rows = await window.loadProtectedDashboardData(window.ogowCredential);
+      window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
       loadRows(window.ogowAuthorizedRows,'Authenticated protected dataset');
       updateTimestamp();
-    };
-    bindEvents();
-    if(document.getElementById('btnSyncLive'))document.getElementById('btnSyncLive').innerHTML='&#128274; Staff sign-in required';
-    if(typeof window.initializeOgowAuth==='function')window.initializeOgowAuth(window.OGOW_GOOGLE_CLIENT_ID);
-    else console.error('OGOW auth gate failed to load.');
+      if(!quiet) toast(`Synced ${window.ogowAuthorizedRows.length} protected rows`);
+    }catch(e){
+      console.error(e);
+      toast(e.message || window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
+      showOgowAuthOverlay();
+    }finally{
+      updateTimestamp();
+    }
+  }
 
-</script>
-</body>
-</html>
+  function restoreAuthorizedRows(showNotice=false){
+    if(Array.isArray(window.ogowAuthorizedRows) && window.ogowAuthorizedRows.length){
+      loadRows(window.ogowAuthorizedRows,'Authenticated protected dataset');
+      updateTimestamp();
+      if(showNotice) toast('Dashboard reset');
+    }else{
+      toast(window.OGOW_AUTH_ERROR || OGOW_AUTH_ERROR);
+      showOgowAuthOverlay();
+    }
+  }
+
+  window.initializeDashboardWithRows = function(rows){
+    window.ogowAuthorizedRows = Array.isArray(rows) ? rows : [];
+    loadRows(window.ogowAuthorizedRows,'Authenticated protected dataset');
+    updateTimestamp();
+  };
+
+  function bindEvents(){
+    byId('btnSyncLive').addEventListener('click',() => {
+      if(!window.ogowCredential){
+        showOgowAuthOverlay();
+        setAuthMessage('Please sign in with your @ogowhealth.com Google account.', false);
+        return;
+      }
+      syncProtectedData();
+    });
+
+    DOM.btnReload.addEventListener('click',() => restoreAuthorizedRows());
+    DOM.btnResetAll.addEventListener('click',() => { resetFilters(); restoreAuthorizedRows(true); });
+    DOM.btnResetFilters.addEventListener('click',() => resetFilters());
+    DOM.weeklyPeriod.addEventListener('change',() => renderDashboard());
+    DOM.fromPeriod.addEventListener('change',() => renderDashboard());
+    DOM.toPeriod.addEventListener('change',() => renderDashboard());
+    DOM.regionFilter.addEventListener('change',() => { updateFilterOptions(); renderDashboard(); });
+    DOM.districtFilter.addEventListener('change',() => { updateFilterOptions(); renderDashboard(); });
+    DOM.facilityFilter.addEventListener('change',() => renderDashboard());
+    DOM.presetGroup.querySelectorAll('.chip-sm').forEach(c => c.addEventListener('click',() => setPreset(c.dataset.preset)));
+    document.querySelectorAll('#viewToggle .vt-btn').forEach(b => b.addEventListener('click',() => toggleView(b.dataset.view)));
+
+    DOM.jsonUpload.addEventListener('change', async ev => {
+      const file = ev.target.files?.[0];
+      if(!file) return;
+      try{
+        const txt = await file.text();
+        const json = JSON.parse(txt);
+        const rows = Array.isArray(json) ? json : Array.isArray(json.rows) ? json.rows : [];
+        if(!rows.length) throw new Error('No rows');
+        window.ogowAuthorizedRows = rows;
+        loadRows(rows,`uploaded (${file.name})`);
+        toast('Dataset uploaded');
+      }catch(e){
+        console.error(e);
+        toast('Invalid JSON');
+      }
+    });
+
+    byId('exportPerfChart').addEventListener('click',() => exportChart(STATE.charts.performance,'weekly-performance-trend.png'));
+    byId('exportDensityCsv').addEventListener('click',() => exportXlsx('density-map.xlsx',STATE.currentDensityRows));
+    byId('exportFollowupCsv').addEventListener('click',() => exportXlsx('composite-followup.xlsx',STATE.currentFollowupRows));
+    byId('exportDefaultersCsv').addEventListener('click',() => exportCsv('top-defaulters.csv',STATE.currentDefaulterRows));
+    window.addEventListener('resize',() => Object.values(STATE.charts).forEach(c => c?.resize()));
+  }
+
+  function bindAuthUi(){
+    const retryBtn = byId('retryGoogleSignIn');
+    if(retryBtn) retryBtn.addEventListener('click',() => initializeOgowAuth());
+
+    const scope = byId('scopeSummaryHero');
+    if(scope){
+      scope.style.cursor = 'pointer';
+      scope.addEvent
