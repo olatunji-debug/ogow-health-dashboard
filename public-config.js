@@ -16,7 +16,7 @@ exports.handler = async (event) => {
 
   return json(200, {
     ok: true,
-    googleClientId: process.env.GOOGLE_CLIENT_ID || '433735217842-72ao49diubclpcf4gpdjmh5ecumq17fr.apps.googleusercontent.com',
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
     allowedDomain: '@ogowhealth.com'
   });
 };
