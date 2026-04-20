@@ -7,14 +7,12 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  GITHUB_DATA_PATH = "data/epi_weekly_performance_rows.json"
+  GITHUB_DATA_PATH = "data/epi_dashboard_data.json"
 
 [[headers]]
-  for = "/index.html"
+  for = "/*"
   [headers.values]
-    Cache-Control = "no-store"
-
-# Set these in Netlify UI:
-# GOOGLE_CLIENT_ID = your Google OAuth client ID
-# GITHUB_REPO = org-or-user/private-data-repo
-# GITHUB_TOKEN = GitHub token with repo read access
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+    Content-Security-Policy = "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://api.github.com; frame-src https://accounts.google.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:;"
